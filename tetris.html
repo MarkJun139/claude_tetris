@@ -2,18 +2,31 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e27">
 <title>Tetris</title>
+<link rel="manifest" href="manifest.json">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
+  html, body {
     background: #0a0e27;
+    overflow: hidden;
+    position: fixed;
+    width: 100%; height: 100%;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
     font-family: 'Segoe UI', sans-serif;
     color: #c8d6f0;
     user-select: none;
@@ -27,7 +40,7 @@
     background: #0a0e27; z-index: 100;
   }
   #menu-screen h1 {
-    font-size: 64px; color: #7db4ff; margin-bottom: 12px;
+    font-size: 56px; color: #7db4ff; margin-bottom: 12px;
     text-shadow: 0 0 30px rgba(125,180,255,0.5);
     letter-spacing: 8px;
   }
@@ -40,10 +53,9 @@
     border-radius: 8px; background: #0d1333;
     color: #7db4ff; font-size: 18px; font-weight: bold;
     cursor: pointer; text-align: center;
-    transition: all 0.2s;
-    letter-spacing: 2px;
+    transition: all 0.2s; letter-spacing: 2px;
   }
-  .menu-btn:hover {
+  .menu-btn:hover, .menu-btn:active {
     background: #1e3a6e; border-color: #3b82f6;
     box-shadow: 0 0 20px rgba(59,130,246,0.3);
   }
@@ -54,22 +66,23 @@
     display: none; flex-direction: column;
     justify-content: center; align-items: center;
     background: #0a0e27; z-index: 100;
+    overflow-y: auto; padding: 20px;
   }
   #lobby-screen h2 {
-    font-size: 32px; color: #7db4ff; margin-bottom: 32px;
+    font-size: 28px; color: #7db4ff; margin-bottom: 24px;
     letter-spacing: 4px;
   }
   .lobby-section {
     background: #0d1333; border: 2px solid #1e3a6e;
-    border-radius: 12px; padding: 28px 36px;
-    margin: 10px 0; width: 340px; text-align: center;
+    border-radius: 12px; padding: 20px 28px;
+    margin: 8px 0; width: 300px; max-width: 90vw; text-align: center;
   }
   .lobby-section h3 {
-    color: #4a7bbf; font-size: 14px; margin-bottom: 16px;
+    color: #4a7bbf; font-size: 14px; margin-bottom: 12px;
     text-transform: uppercase; letter-spacing: 2px;
   }
   .room-code {
-    font-size: 36px; font-weight: bold; color: #7db4ff;
+    font-size: 32px; font-weight: bold; color: #7db4ff;
     letter-spacing: 6px; margin: 8px 0;
     font-family: 'Consolas', 'Courier New', monospace;
   }
@@ -90,154 +103,216 @@
     background: #0d1333; color: #7db4ff; font-size: 15px;
     font-weight: bold; cursor: pointer; transition: all 0.2s;
   }
-  .lobby-btn:hover {
-    background: #1e3a6e; border-color: #3b82f6;
-  }
-  .lobby-btn:disabled {
-    opacity: 0.4; cursor: default;
-  }
-  .lobby-status {
-    color: #4a7bbf; font-size: 13px; margin-top: 10px;
-    min-height: 20px;
-  }
+  .lobby-btn:hover, .lobby-btn:active { background: #1e3a6e; border-color: #3b82f6; }
+  .lobby-btn:disabled { opacity: 0.4; cursor: default; }
+  .lobby-status { color: #4a7bbf; font-size: 13px; margin-top: 10px; min-height: 20px; }
   .lobby-back {
-    margin-top: 24px; color: #4a6a9e; font-size: 13px;
-    cursor: pointer; border: none; background: none;
+    margin-top: 20px; color: #4a6a9e; font-size: 14px;
+    cursor: pointer; border: none; background: none; padding: 8px 16px;
   }
   .lobby-back:hover { color: #7db4ff; }
 
   /* ── Game Layout ── */
-  #game-screen { display: none; }
+  #game-screen { display: none; width: 100%; height: 100%; }
 
   .game-wrapper {
     display: flex;
-    gap: 24px;
+    gap: 12px;
     align-items: flex-start;
+    justify-content: center;
+    width: 100%;
   }
 
   .board-container {
-    border: 3px solid #1e3a6e;
-    border-radius: 8px;
+    border: 2px solid #1e3a6e;
+    border-radius: 6px;
     background: #0d1333;
-    padding: 4px;
-    box-shadow: 0 0 30px rgba(30, 80, 180, 0.3);
+    padding: 2px;
+    box-shadow: 0 0 20px rgba(30, 80, 180, 0.3);
+    flex-shrink: 0;
   }
 
-  .board-container canvas {
-    display: block;
-    border-radius: 4px;
-  }
+  .board-container canvas { display: block; border-radius: 4px; }
 
   .side-panel {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    min-width: 140px;
+    gap: 8px;
+    min-width: 80px;
   }
 
   .panel-box {
     background: #0d1333;
     border: 2px solid #1e3a6e;
-    border-radius: 8px;
-    padding: 12px;
+    border-radius: 6px;
+    padding: 6px;
     text-align: center;
   }
 
   .panel-box h3 {
-    font-size: 13px;
+    font-size: 10px;
     color: #4a7bbf;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 1px;
   }
 
   .panel-box .value {
-    font-size: 22px;
+    font-size: 16px;
     font-weight: bold;
     color: #7db4ff;
   }
 
-  canvas#next-piece {
+  canvas#next-piece, canvas#hold-piece {
     display: block;
     margin: 0 auto;
   }
 
-  .controls {
-    font-size: 11px;
-    line-height: 1.8;
-    color: #4a6a9e;
-  }
+  .controls { display: none; } /* hide keyboard controls on mobile */
 
   .overlay {
-    position: absolute;
-    top: 0; left: 0;
+    position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: flex; justify-content: center; align-items: center;
     flex-direction: column;
     background: rgba(10, 14, 39, 0.85);
-    border-radius: 4px;
-    z-index: 10;
+    border-radius: 4px; z-index: 10;
   }
+  .overlay h2 { font-size: 24px; color: #7db4ff; margin-bottom: 6px; }
+  .overlay p { font-size: 12px; color: #4a7bbf; }
 
-  .overlay h2 {
-    font-size: 28px;
-    color: #7db4ff;
-    margin-bottom: 8px;
-  }
+  .board-wrapper { position: relative; }
 
-  .overlay p {
-    font-size: 14px;
-    color: #4a7bbf;
-  }
-
-  .board-wrapper {
-    position: relative;
-  }
-
-  /* ── Opponent Panel (Multi) ── */
+  /* ── Opponent Panel ── */
   .opponent-area {
-    display: none;
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
+    display: none; flex-direction: column; gap: 8px; align-items: center;
   }
   .opponent-area.active { display: flex; }
   .opponent-label {
-    font-size: 14px; color: #4a7bbf;
-    text-transform: uppercase; letter-spacing: 2px;
-    font-weight: bold;
+    font-size: 11px; color: #4a7bbf;
+    text-transform: uppercase; letter-spacing: 2px; font-weight: bold;
   }
   .opponent-board-container {
-    border: 2px solid #1e3a6e;
-    border-radius: 8px;
-    background: #0d1333;
-    padding: 3px;
+    border: 2px solid #1e3a6e; border-radius: 6px;
+    background: #0d1333; padding: 2px;
   }
-  .opponent-stats {
-    display: flex; gap: 16px; font-size: 12px; color: #4a6a9e;
-  }
+  .opponent-stats { display: flex; gap: 10px; font-size: 10px; color: #4a6a9e; }
   .opponent-stats span { color: #7db4ff; font-weight: bold; }
 
-  /* ── Attack Warning ── */
   .attack-warning {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 24px; font-weight: bold;
+    font-size: 20px; font-weight: bold;
     color: #ff4444; opacity: 0;
     pointer-events: none; z-index: 20;
     text-shadow: 0 0 20px rgba(255,68,68,0.8);
   }
-
-  /* ── Line Clear Text ── */
   .line-clear-text {
     position: absolute; top: 40%; left: 50%;
     transform: translate(-50%, -50%) scale(1);
-    font-size: 28px; font-weight: bold;
+    font-size: 22px; font-weight: bold;
     opacity: 0; pointer-events: none; z-index: 19;
     text-shadow: 0 0 16px currentColor;
     transition: none;
+  }
+
+  /* ── Mobile Touch Controls ── */
+  #touch-controls {
+    display: none;
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 50;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .touch-left, .touch-right {
+    display: flex; gap: 6px;
+  }
+  .touch-left { align-items: flex-end; }
+  .touch-right { align-items: flex-end; }
+
+  .touch-btn {
+    display: flex; justify-content: center; align-items: center;
+    width: 56px; height: 56px;
+    border: 2px solid rgba(125,180,255,0.3);
+    border-radius: 14px;
+    background: rgba(13,19,51,0.85);
+    color: #7db4ff;
+    font-size: 22px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.1s;
+    flex-shrink: 0;
+  }
+  .touch-btn:active, .touch-btn.pressed {
+    background: rgba(59,130,246,0.4);
+    border-color: #3b82f6;
+  }
+  .touch-btn.small {
+    width: 48px; height: 48px; font-size: 13px;
+    font-weight: bold; letter-spacing: 0;
+  }
+  .touch-btn.drop-btn {
+    width: 56px; height: 72px;
+    font-size: 16px; font-weight: bold;
+    background: rgba(13,19,51,0.9);
+    border-color: rgba(255,180,50,0.4);
+    color: #ffaa44;
+  }
+  .touch-btn.drop-btn:active {
+    background: rgba(255,150,50,0.3);
+    border-color: #ffaa44;
+  }
+
+  /* ── Mobile Game Layout ── */
+  .mobile-game-top {
+    display: none;
+    width: 100%;
+    padding: 4px 8px;
+    padding-top: max(4px, env(safe-area-inset-top));
+    justify-content: space-between;
+    align-items: center;
+    position: fixed; top: 0; left: 0; z-index: 40;
+    background: rgba(10,14,39,0.9);
+  }
+
+  .mobile-stats {
+    display: flex; gap: 16px; font-size: 12px; color: #4a6a9e;
+  }
+  .mobile-stats span { color: #7db4ff; font-weight: bold; }
+
+  .mobile-hold-next {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .mobile-hold-next canvas {
+    border: 1px solid #1e3a6e; border-radius: 4px;
+    background: #0d1333;
+  }
+  .mobile-hold-next .mn-label {
+    font-size: 8px; color: #4a7bbf; text-align: center;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  .mobile-pause-btn {
+    background: none; border: 1px solid #1e3a6e;
+    border-radius: 6px; color: #4a7bbf; padding: 4px 12px;
+    font-size: 12px; cursor: pointer;
+  }
+  .mobile-pause-btn:active { background: #1e3a6e; }
+
+  /* ── Desktop media query ── */
+  @media (min-width: 700px) and (min-height: 650px) {
+    .controls { display: block; }
+    .side-panel { min-width: 120px; gap: 12px; }
+    .panel-box { padding: 10px; }
+    .panel-box h3 { font-size: 12px; margin-bottom: 6px; }
+    .panel-box .value { font-size: 20px; }
+    .game-wrapper { gap: 20px; }
+    .overlay h2 { font-size: 28px; }
+    .overlay p { font-size: 14px; }
   }
 </style>
 </head>
@@ -272,8 +347,22 @@
 
 <!-- Game Screen -->
 <div id="game-screen">
-  <div class="game-wrapper">
-    <div class="board-container">
+  <!-- Mobile top bar -->
+  <div class="mobile-game-top" id="mobile-top">
+    <div class="mobile-hold-next">
+      <div><div class="mn-label">Hold</div><canvas id="m-hold" width="40" height="40"></canvas></div>
+      <div><div class="mn-label">Next</div><canvas id="m-next" width="40" height="40"></canvas></div>
+    </div>
+    <div class="mobile-stats">
+      <div>S: <span id="m-score">0</span></div>
+      <div>Lv: <span id="m-level">1</span></div>
+      <div>L: <span id="m-lines">0</span></div>
+    </div>
+    <button class="mobile-pause-btn" id="m-pause">| |</button>
+  </div>
+
+  <div class="game-wrapper" id="game-wrapper">
+    <div class="board-container" id="board-container">
       <div class="board-wrapper">
         <canvas id="board" width="300" height="600"></canvas>
         <div class="overlay" id="overlay" style="display:none;">
@@ -285,14 +374,14 @@
       </div>
     </div>
 
-    <div class="side-panel">
+    <div class="side-panel" id="side-panel">
       <div class="panel-box">
         <h3>Hold (Q)</h3>
-        <canvas id="hold-piece" width="100" height="100"></canvas>
+        <canvas id="hold-piece" width="80" height="80"></canvas>
       </div>
       <div class="panel-box">
         <h3>Next</h3>
-        <canvas id="next-piece" width="100" height="100"></canvas>
+        <canvas id="next-piece" width="80" height="80"></canvas>
       </div>
       <div class="panel-box">
         <h3>Score</h3>
@@ -308,7 +397,7 @@
       </div>
       <div class="panel-box controls">
         <h3>Controls</h3>
-        <div>← → : Move</div>
+        <div>&#8592; &#8594; : Move</div>
         <div>&#8593; : Rotate</div>
         <div>&#8595; : Soft Drop</div>
         <div>Space : Hard Drop</div>
@@ -328,11 +417,31 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile Touch Controls -->
+  <div id="touch-controls">
+    <div class="touch-left">
+      <button class="touch-btn" id="t-left">&#9664;</button>
+      <button class="touch-btn" id="t-right">&#9654;</button>
+      <button class="touch-btn small" id="t-hold">HOLD</button>
+    </div>
+    <div class="touch-right">
+      <button class="touch-btn" id="t-rotate">&#8635;</button>
+      <button class="touch-btn" id="t-down">&#9660;</button>
+      <button class="touch-btn drop-btn" id="t-drop">DROP</button>
+    </div>
+  </div>
 </div>
 
 <script>
 (function () {
   "use strict";
+
+  // ══════════════════════════════════════════
+  // Mobile Detection & Layout
+  // ══════════════════════════════════════════
+  var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    || (window.innerWidth < 700 && 'ontouchstart' in window);
 
   // ══════════════════════════════════════════
   // Constants
@@ -362,7 +471,6 @@
   var PIECE_NAMES = ["I","O","T","S","Z","J","L"];
   var BOMB_CHANCE = 0.18;
   var LINE_SCORES = [0, 100, 300, 500, 800];
-  // Garbage lines sent: [0, 0, 1, 2, 4]
   var GARBAGE_TABLE = [0, 0, 1, 2, 4];
 
   function getLineScore(n) {
@@ -400,6 +508,8 @@
   var boardCtx      = boardCanvas.getContext("2d");
   var nextCanvas    = document.getElementById("next-piece");
   var nextCtx       = nextCanvas.getContext("2d");
+  var holdCanvas    = document.getElementById("hold-piece");
+  var holdCtx       = holdCanvas.getContext("2d");
   var scoreEl       = document.getElementById("score");
   var levelEl       = document.getElementById("level");
   var linesEl       = document.getElementById("lines");
@@ -407,15 +517,91 @@
   var overlayTitle  = document.getElementById("overlay-title");
   var overlayMsg    = document.getElementById("overlay-msg");
   var attackWarning = document.getElementById("attack-warning");
-  var lineClearText  = document.getElementById("line-clear-text");
-  var holdCanvas     = document.getElementById("hold-piece");
-  var holdCtx        = holdCanvas.getContext("2d");
+  var lineClearText = document.getElementById("line-clear-text");
 
   var oppArea       = document.getElementById("opponent-area");
   var oppCanvas     = document.getElementById("opp-board");
   var oppCtx        = oppCanvas.getContext("2d");
   var oppScoreEl    = document.getElementById("opp-score");
   var oppLinesEl    = document.getElementById("opp-lines");
+
+  var mobileTop     = document.getElementById("mobile-top");
+  var touchControls = document.getElementById("touch-controls");
+  var sidePanel     = document.getElementById("side-panel");
+  var gameWrapper   = document.getElementById("game-wrapper");
+  var boardContainer= document.getElementById("board-container");
+
+  // Mobile mini canvases
+  var mHoldCanvas   = document.getElementById("m-hold");
+  var mHoldCtx      = mHoldCanvas.getContext("2d");
+  var mNextCanvas   = document.getElementById("m-next");
+  var mNextCtx      = mNextCanvas.getContext("2d");
+  var mScoreEl      = document.getElementById("m-score");
+  var mLevelEl      = document.getElementById("m-level");
+  var mLinesEl      = document.getElementById("m-lines");
+  var mPauseBtn     = document.getElementById("m-pause");
+
+  // ══════════════════════════════════════════
+  // Responsive Sizing
+  // ══════════════════════════════════════════
+  function resizeGame() {
+    if (isMobile) {
+      sidePanel.style.display = "none";
+      mobileTop.style.display = "flex";
+      touchControls.style.display = "flex";
+      gameWrapper.style.alignItems = "center";
+      gameWrapper.style.justifyContent = "center";
+      gameWrapper.style.height = "100%";
+
+      var topH = 52;
+      var bottomH = 80;
+      var safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0') || 0;
+      var availH = window.innerHeight - topH - bottomH - safeTop - 8;
+      var availW = window.innerWidth - 16;
+
+      // Calculate block size to fit
+      var blockByH = Math.floor(availH / ROWS);
+      var blockByW = Math.floor(availW / COLS);
+      BLOCK = Math.min(blockByH, blockByW);
+      if (BLOCK < 14) BLOCK = 14;
+      if (BLOCK > 30) BLOCK = 30;
+
+      boardCanvas.width = COLS * BLOCK;
+      boardCanvas.height = ROWS * BLOCK;
+
+      // Center board vertically
+      var boardH = ROWS * BLOCK;
+      var topOffset = topH + Math.max(0, (availH - boardH) / 2);
+      boardContainer.style.marginTop = topOffset + "px";
+    } else {
+      sidePanel.style.display = "flex";
+      mobileTop.style.display = "none";
+      touchControls.style.display = "none";
+
+      var dAvailH = window.innerHeight - 40;
+      var dBlock = Math.floor(dAvailH / ROWS);
+      if (dBlock < 20) dBlock = 20;
+      if (dBlock > 30) dBlock = 30;
+      BLOCK = dBlock;
+      boardCanvas.width = COLS * BLOCK;
+      boardCanvas.height = ROWS * BLOCK;
+      boardContainer.style.marginTop = "";
+
+      // Resize side panel canvases
+      var spSz = Math.min(80, BLOCK * 3);
+      nextCanvas.width = spSz; nextCanvas.height = spSz;
+      holdCanvas.width = spSz; holdCanvas.height = spSz;
+    }
+  }
+
+  window.addEventListener("resize", function () {
+    isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      || (window.innerWidth < 700 && 'ontouchstart' in window);
+    resizeGame();
+    drawBoard();
+    drawNext();
+    drawHold();
+  });
 
   // ══════════════════════════════════════════
   // Game State
@@ -428,31 +614,26 @@
   var totalLines = 0;
   var dropTimer = 0;
   var lastTime = 0;
-  var gameState = "idle"; // idle | playing | paused | gameover | countdown
+  var gameState = "idle";
   var animFrameId = null;
   var bag = [];
   var isMultiplayer = false;
   var pendingGarbage = 0;
   var holdType = null;
-  var holdUsed = false; // prevent infinite hold swapping per piece
+  var holdUsed = false;
 
-  // Explosion effects
   var explosionParticles = [];
   var explosionFlash = 0;
   var screenShake = 0;
   var shakeOffsetX = 0;
   var shakeOffsetY = 0;
-
-  // Attack warning animation
   var attackWarnTimer = 0;
 
-  // Opponent state (multiplayer)
   var oppBoard = [];
   var oppScore = 0;
   var oppLines = 0;
   var oppAlive = true;
 
-  // Network
   var peer = null;
   var conn = null;
   var myRoomCode = "";
@@ -512,23 +693,15 @@
       }
       if (full) {
         clearedRows.push(r);
-        // Collect block colors for particles before removing
         for (var pc = 0; pc < COLS; pc++) {
           var pColor = COLORS[board[r][pc]] || "#7db4ff";
           if (board[r][pc] === "G") pColor = "#3a3a5c";
-          // Horizontal sweep sparks
           for (var sp = 0; sp < 3; sp++) {
             explosionParticles.push({
-              type: "spark",
-              x: pc * BLOCK + BLOCK / 2,
-              y: r * BLOCK + BLOCK / 2,
-              vx: (Math.random() - 0.5) * 8,
-              vy: (Math.random() - 0.5) * 4 - 1,
-              size: 2 + Math.random() * 3,
-              color: pColor,
-              life: 0.5 + Math.random() * 0.5,
-              decay: 0.015 + Math.random() * 0.01,
-              gravity: 0.1
+              type:"spark", x: pc*BLOCK+BLOCK/2, y: r*BLOCK+BLOCK/2,
+              vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*4-1,
+              size:2+Math.random()*3, color:pColor,
+              life:0.5+Math.random()*0.5, decay:0.015+Math.random()*0.01, gravity:0.1
             });
           }
         }
@@ -536,105 +709,77 @@
         var emptyRow = [];
         for (var c2 = 0; c2 < COLS; c2++) emptyRow.push(EMPTY);
         board.unshift(emptyRow);
-        cleared++;
-        r++;
+        cleared++; r++;
       }
     }
-
-    // Trigger line clear effects based on count
-    if (cleared > 0) {
-      triggerLineClearEffect(cleared, clearedRows);
-    }
-
+    if (cleared > 0) triggerLineClearEffect(cleared, clearedRows);
     return cleared;
   }
 
   function triggerLineClearEffect(count, rows) {
-    // Screen shake scales with lines cleared
     if (count === 1) {
-      screenShake = 4;
-      explosionFlash = 0.15;
+      screenShake = 4; explosionFlash = 0.15;
       showLineClearText("SINGLE", "#7db4ff");
     } else if (count === 2) {
-      screenShake = 8;
-      explosionFlash = 0.3;
+      screenShake = 8; explosionFlash = 0.3;
       showLineClearText("DOUBLE!", "#34d399");
-      // Horizontal shockwave for each cleared row
       for (var i = 0; i < rows.length; i++) {
         explosionParticles.push({
-          type: "ring", x: COLS * BLOCK / 2, y: rows[i] * BLOCK + BLOCK / 2,
-          radius: 20, expandSpeed: 5, width: 3,
-          color: "#34d399", life: 0.8, decay: 0.03
+          type:"ring", x:COLS*BLOCK/2, y:rows[i]*BLOCK+BLOCK/2,
+          radius:20, expandSpeed:5, width:3, color:"#34d399", life:0.8, decay:0.03
         });
       }
     } else if (count === 3) {
-      screenShake = 14;
-      explosionFlash = 0.5;
+      screenShake = 14; explosionFlash = 0.5;
       showLineClearText("TRIPLE!!", "#a78bfa");
-      // Multiple rings + extra sparks
       for (var j = 0; j < rows.length; j++) {
         for (var rr = 0; rr < 2; rr++) {
           explosionParticles.push({
-            type: "ring", x: COLS * BLOCK / 2, y: rows[j] * BLOCK + BLOCK / 2,
-            radius: 10 + rr * 15, expandSpeed: 4 + rr * 2, width: 4 - rr,
-            color: rr === 0 ? "#ffffff" : "#a78bfa", life: 0.9, decay: 0.025
+            type:"ring", x:COLS*BLOCK/2, y:rows[j]*BLOCK+BLOCK/2,
+            radius:10+rr*15, expandSpeed:4+rr*2, width:4-rr,
+            color:rr===0?"#ffffff":"#a78bfa", life:0.9, decay:0.025
           });
         }
       }
-      // Extra spark burst from center
       for (var es = 0; es < 25; es++) {
-        var ang = Math.random() * Math.PI * 2;
-        var vel = 3 + Math.random() * 5;
+        var ang = Math.random()*Math.PI*2, vel = 3+Math.random()*5;
         explosionParticles.push({
-          type: "spark", x: COLS * BLOCK / 2, y: rows[0] * BLOCK + BLOCK / 2,
-          vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel,
-          size: 2 + Math.random() * 4,
-          color: ["#ffffff","#a78bfa","#7db4ff"][Math.floor(Math.random()*3)],
-          life: 0.7 + Math.random() * 0.3, decay: 0.015, gravity: 0.06
+          type:"spark", x:COLS*BLOCK/2, y:rows[0]*BLOCK+BLOCK/2,
+          vx:Math.cos(ang)*vel, vy:Math.sin(ang)*vel,
+          size:2+Math.random()*4,
+          color:["#ffffff","#a78bfa","#7db4ff"][Math.floor(Math.random()*3)],
+          life:0.7+Math.random()*0.3, decay:0.015, gravity:0.06
         });
       }
     } else if (count >= 4) {
-      screenShake = 20;
-      explosionFlash = 0.8;
+      screenShake = 20; explosionFlash = 0.8;
       showLineClearText("TETRIS!!!", "#ffdd44");
-      // Massive explosion from center of cleared area
       var centerY = 0;
       for (var k = 0; k < rows.length; k++) centerY += rows[k];
       centerY = (centerY / rows.length) * BLOCK + BLOCK / 2;
-      // Big rings
       for (var br = 0; br < 4; br++) {
         explosionParticles.push({
-          type: "ring", x: COLS * BLOCK / 2, y: centerY,
-          radius: 5 + br * 12, expandSpeed: 3 + br * 2, width: 5 - br,
-          color: br < 2 ? "#ffffff" : (br === 2 ? "#ffdd44" : "#ff8800"),
-          life: 1.0, decay: 0.02
+          type:"ring", x:COLS*BLOCK/2, y:centerY,
+          radius:5+br*12, expandSpeed:3+br*2, width:5-br,
+          color:br<2?"#ffffff":(br===2?"#ffdd44":"#ff8800"), life:1.0, decay:0.02
         });
       }
-      // Massive spark shower
+      var scol = ["#ffffff","#ffdd44","#ff8800","#ffaa00","#7db4ff"];
       for (var ms = 0; ms < 60; ms++) {
-        var a2 = Math.random() * Math.PI * 2;
-        var v2 = 2 + Math.random() * 8;
-        var scol = ["#ffffff","#ffdd44","#ff8800","#ffaa00","#7db4ff"];
+        var a2 = Math.random()*Math.PI*2, v2 = 2+Math.random()*8;
         explosionParticles.push({
-          type: "spark", x: COLS * BLOCK / 2, y: centerY,
-          vx: Math.cos(a2) * v2, vy: Math.sin(a2) * v2 - 2,
-          size: 2 + Math.random() * 5,
-          color: scol[Math.floor(Math.random()*scol.length)],
-          life: 0.6 + Math.random() * 0.4, decay: 0.01 + Math.random() * 0.005,
-          gravity: 0.07
+          type:"spark", x:COLS*BLOCK/2, y:centerY,
+          vx:Math.cos(a2)*v2, vy:Math.sin(a2)*v2-2, size:2+Math.random()*5,
+          color:scol[Math.floor(Math.random()*scol.length)],
+          life:0.6+Math.random()*0.4, decay:0.01+Math.random()*0.005, gravity:0.07
         });
       }
-      // Flying debris blocks
       for (var db = 0; db < 15; db++) {
         explosionParticles.push({
-          type: "debris",
-          x: Math.random() * COLS * BLOCK,
-          y: centerY,
-          vx: (Math.random() - 0.5) * 10,
-          vy: -3 - Math.random() * 6,
-          size: 5 + Math.random() * 8,
-          color: scol[Math.floor(Math.random()*scol.length)],
-          life: 1.0, decay: 0.012, gravity: 0.18
+          type:"debris", x:Math.random()*COLS*BLOCK, y:centerY,
+          vx:(Math.random()-0.5)*10, vy:-3-Math.random()*6,
+          size:5+Math.random()*8, color:scol[Math.floor(Math.random()*scol.length)],
+          life:1.0, decay:0.012, gravity:0.18
         });
       }
     }
@@ -647,18 +792,13 @@
     lineClearText.style.color = color;
     lineClearText.style.opacity = "1";
     lineClearText.style.transition = "none";
-    lineClearText.style.transform = "translate(-50%, -50%) scale(1.3)";
-    // Animate
-    requestAnimationFrame(function() {
-      requestAnimationFrame(function() {
-        lineClearText.style.transition = "all 0.6s ease-out";
-        lineClearText.style.transform = "translate(-50%, -50%) scale(1)";
-        lineClearText.style.opacity = "0";
-      });
-    });
-    lineClearTimeout = setTimeout(function() {
+    lineClearText.style.transform = "translate(-50%,-50%) scale(1.3)";
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      lineClearText.style.transition = "all 0.6s ease-out";
+      lineClearText.style.transform = "translate(-50%,-50%) scale(1)";
       lineClearText.style.opacity = "0";
-    }, 700);
+    }); });
+    lineClearTimeout = setTimeout(function(){ lineClearText.style.opacity = "0"; }, 700);
   }
 
   function nextFromBag() {
@@ -671,18 +811,15 @@
     }
     return bag.pop();
   }
-
   function pickNextType() {
     if (Math.random() < BOMB_CHANCE) return "BOMB";
     return nextFromBag();
   }
-
   function spawnPiece(type) {
-    var p = { type: type, rotation: 0, x: 3, y: 0 };
+    var p = { type:type, rotation:0, x:3, y:0 };
     if (type === "O" || type === "BOMB") p.x = 4;
     return p;
   }
-
   function getGhostY() {
     if (!current) return 0;
     var gy = current.y;
@@ -690,28 +827,18 @@
     return gy;
   }
 
-  // ══════════════════════════════════════════
-  // Garbage Lines
-  // ══════════════════════════════════════════
+  // Garbage
   function addGarbageLines(count) {
     if (count <= 0) return;
     for (var i = 0; i < count; i++) {
-      board.shift(); // remove top row
-      var row = [];
-      var hole = Math.floor(Math.random() * COLS);
-      for (var c = 0; c < COLS; c++) {
-        row.push(c === hole ? EMPTY : "G");
-      }
+      board.shift();
+      var row = [], hole = Math.floor(Math.random() * COLS);
+      for (var c = 0; c < COLS; c++) row.push(c === hole ? EMPTY : "G");
       board.push(row);
     }
-    // Push current piece up if it's now overlapping
     if (current) {
-      while (!isValid(current.type, current.rotation, current.x, current.y) && current.y > 0) {
-        current.y--;
-      }
-      if (!isValid(current.type, current.rotation, current.x, current.y)) {
-        triggerGameOver();
-      }
+      while (!isValid(current.type, current.rotation, current.x, current.y) && current.y > 0) current.y--;
+      if (!isValid(current.type, current.rotation, current.x, current.y)) triggerGameOver();
     }
   }
 
@@ -721,979 +848,621 @@
   function drawBlock(ctx, x, y, color, size) {
     size = size || BLOCK;
     ctx.fillStyle = color;
-    ctx.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+    ctx.fillRect(x*size+1, y*size+1, size-2, size-2);
     ctx.fillStyle = "rgba(255,255,255,0.15)";
-    ctx.fillRect(x * size + 1, y * size + 1, size - 2, Math.max(2, size * 0.13));
-    ctx.fillRect(x * size + 1, y * size + 1, Math.max(2, size * 0.13), size - 2);
+    ctx.fillRect(x*size+1, y*size+1, size-2, Math.max(2, size*0.13));
+    ctx.fillRect(x*size+1, y*size+1, Math.max(2, size*0.13), size-2);
   }
 
   function drawBomb(ctx, x, y, size, time) {
     size = size || BLOCK;
-    var cx = x * size + size / 2;
-    var cy = y * size + size / 2;
-    var r = (size - 4) / 2;
-    var pulse = 0.5 + 0.5 * Math.sin((time || Date.now()) * 0.006);
-
-    var glow = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.4);
-    glow.addColorStop(0, "rgba(255,100,0," + (0.6 + pulse * 0.4) + ")");
-    glow.addColorStop(0.6, "rgba(255,30,0,0.3)");
-    glow.addColorStop(1, "rgba(255,0,0,0)");
+    var cx = x*size+size/2, cy = y*size+size/2;
+    var r = (size-4)/2;
+    var pulse = 0.5 + 0.5*Math.sin((time||Date.now())*0.006);
+    var glow = ctx.createRadialGradient(cx,cy,r*0.3,cx,cy,r*1.4);
+    glow.addColorStop(0,"rgba(255,100,0,"+(0.6+pulse*0.4)+")");
+    glow.addColorStop(0.6,"rgba(255,30,0,0.3)");
+    glow.addColorStop(1,"rgba(255,0,0,0)");
     ctx.fillStyle = glow;
-    ctx.fillRect(x * size - 4, y * size - 4, size + 8, size + 8);
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = "#1a1a2e";
-    ctx.fill();
-    ctx.strokeStyle = "#ff4500";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(cx - r * 0.25, cy - r * 0.25, r * 0.35, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,120,50," + (0.3 + pulse * 0.3) + ")";
-    ctx.fill();
-
-    var sparkAngle = -Math.PI * 0.3;
-    ctx.beginPath();
-    ctx.arc(cx + Math.cos(sparkAngle) * r, cy + Math.sin(sparkAngle) * r, 3 + pulse * 2, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,100," + (0.7 + pulse * 0.3) + ")";
-    ctx.fill();
-
-    ctx.fillStyle = "#ff6030";
-    ctx.font = "bold " + Math.floor(size * 0.45) + "px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("*", cx, cy + 1);
+    ctx.fillRect(x*size-4,y*size-4,size+8,size+8);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle="#1a1a2e"; ctx.fill();
+    ctx.strokeStyle="#ff4500"; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx-r*0.25,cy-r*0.25,r*0.35,0,Math.PI*2);
+    ctx.fillStyle="rgba(255,120,50,"+(0.3+pulse*0.3)+")"; ctx.fill();
+    var sa=-Math.PI*0.3;
+    ctx.beginPath(); ctx.arc(cx+Math.cos(sa)*r,cy+Math.sin(sa)*r,3+pulse*2,0,Math.PI*2);
+    ctx.fillStyle="rgba(255,255,100,"+(0.7+pulse*0.3)+")"; ctx.fill();
+    ctx.fillStyle="#ff6030";
+    ctx.font="bold "+Math.floor(size*0.45)+"px sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("*",cx,cy+1);
   }
 
   function drawBoard() {
     var now = Date.now();
-
     if (screenShake > 0) {
-      shakeOffsetX = (Math.random() - 0.5) * screenShake * 0.8;
-      shakeOffsetY = (Math.random() - 0.5) * screenShake * 0.8;
-    } else {
-      shakeOffsetX = 0; shakeOffsetY = 0;
-    }
+      shakeOffsetX = (Math.random()-0.5)*screenShake*0.8;
+      shakeOffsetY = (Math.random()-0.5)*screenShake*0.8;
+    } else { shakeOffsetX=0; shakeOffsetY=0; }
 
     boardCtx.save();
     boardCtx.translate(shakeOffsetX, shakeOffsetY);
-    boardCtx.fillStyle = "#0a0f2e";
-    boardCtx.fillRect(-4, -4, boardCanvas.width + 8, boardCanvas.height + 8);
+    boardCtx.fillStyle="#0a0f2e";
+    boardCtx.fillRect(-4,-4,boardCanvas.width+8,boardCanvas.height+8);
 
     if (explosionFlash > 0) {
-      boardCtx.fillStyle = "rgba(255,150,50," + (explosionFlash * 0.4) + ")";
-      boardCtx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+      boardCtx.fillStyle="rgba(255,150,50,"+(explosionFlash*0.4)+")";
+      boardCtx.fillRect(0,0,boardCanvas.width,boardCanvas.height);
     }
 
-    // Grid
-    boardCtx.strokeStyle = "rgba(30,58,110,0.3)";
-    boardCtx.lineWidth = 0.5;
-    for (var c = 1; c < COLS; c++) {
-      boardCtx.beginPath();
-      boardCtx.moveTo(c * BLOCK, 0);
-      boardCtx.lineTo(c * BLOCK, ROWS * BLOCK);
-      boardCtx.stroke();
-    }
-    for (var r = 1; r < ROWS; r++) {
-      boardCtx.beginPath();
-      boardCtx.moveTo(0, r * BLOCK);
-      boardCtx.lineTo(COLS * BLOCK, r * BLOCK);
-      boardCtx.stroke();
-    }
+    boardCtx.strokeStyle="rgba(30,58,110,0.3)"; boardCtx.lineWidth=0.5;
+    for (var c=1;c<COLS;c++){boardCtx.beginPath();boardCtx.moveTo(c*BLOCK,0);boardCtx.lineTo(c*BLOCK,ROWS*BLOCK);boardCtx.stroke();}
+    for (var r=1;r<ROWS;r++){boardCtx.beginPath();boardCtx.moveTo(0,r*BLOCK);boardCtx.lineTo(COLS*BLOCK,r*BLOCK);boardCtx.stroke();}
 
-    // Locked blocks
-    for (var r2 = 0; r2 < ROWS; r2++) {
-      for (var c2 = 0; c2 < COLS; c2++) {
-        if (board[r2][c2] !== EMPTY) {
-          if (board[r2][c2] === "BOMB") {
-            drawBomb(boardCtx, c2, r2, BLOCK, now);
-          } else if (board[r2][c2] === "G") {
-            // Garbage block
-            boardCtx.fillStyle = "#3a3a5c";
-            boardCtx.fillRect(c2 * BLOCK + 1, r2 * BLOCK + 1, BLOCK - 2, BLOCK - 2);
-            boardCtx.fillStyle = "rgba(255,255,255,0.05)";
-            boardCtx.fillRect(c2 * BLOCK + 1, r2 * BLOCK + 1, BLOCK - 2, 3);
-          } else {
-            drawBlock(boardCtx, c2, r2, COLORS[board[r2][c2]] || "#888");
-          }
+    for (var r2=0;r2<ROWS;r2++){
+      for (var c2=0;c2<COLS;c2++){
+        if(board[r2][c2]!==EMPTY){
+          if(board[r2][c2]==="BOMB") drawBomb(boardCtx,c2,r2,BLOCK,now);
+          else if(board[r2][c2]==="G"){
+            boardCtx.fillStyle="#3a3a5c";
+            boardCtx.fillRect(c2*BLOCK+1,r2*BLOCK+1,BLOCK-2,BLOCK-2);
+            boardCtx.fillStyle="rgba(255,255,255,0.05)";
+            boardCtx.fillRect(c2*BLOCK+1,r2*BLOCK+1,BLOCK-2,3);
+          } else drawBlock(boardCtx,c2,r2,COLORS[board[r2][c2]]||"#888");
         }
       }
     }
 
-    // Explosion particles
-    for (var p = 0; p < explosionParticles.length; p++) {
-      var pt = explosionParticles[p];
-      if (pt.life <= 0) continue;
-      boardCtx.globalAlpha = pt.life;
-      if (pt.type === "ring") {
-        boardCtx.beginPath();
-        boardCtx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
-        boardCtx.strokeStyle = pt.color;
-        boardCtx.lineWidth = pt.width * pt.life;
-        boardCtx.stroke();
-      } else if (pt.type === "debris") {
-        boardCtx.fillStyle = pt.color;
-        boardCtx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
-      } else {
-        boardCtx.beginPath();
-        boardCtx.arc(pt.x, pt.y, pt.size * pt.life, 0, Math.PI * 2);
-        boardCtx.fillStyle = pt.color;
-        boardCtx.fill();
-      }
-      boardCtx.globalAlpha = 1;
+    // Particles
+    for (var p=0;p<explosionParticles.length;p++){
+      var pt=explosionParticles[p]; if(pt.life<=0) continue;
+      boardCtx.globalAlpha=pt.life;
+      if(pt.type==="ring"){boardCtx.beginPath();boardCtx.arc(pt.x,pt.y,pt.radius,0,Math.PI*2);boardCtx.strokeStyle=pt.color;boardCtx.lineWidth=pt.width*pt.life;boardCtx.stroke();}
+      else if(pt.type==="debris"){boardCtx.fillStyle=pt.color;boardCtx.fillRect(pt.x-pt.size/2,pt.y-pt.size/2,pt.size,pt.size);}
+      else{boardCtx.beginPath();boardCtx.arc(pt.x,pt.y,pt.size*pt.life,0,Math.PI*2);boardCtx.fillStyle=pt.color;boardCtx.fill();}
+      boardCtx.globalAlpha=1;
     }
 
-    if (!current) { boardCtx.restore(); return; }
+    if(!current){boardCtx.restore();return;}
 
-    // Ghost
-    var ghostY = getGhostY();
-    if (ghostY !== current.y) {
-      var ghostCells = getCells(current.type, current.rotation, current.x, ghostY);
-      for (var g = 0; g < ghostCells.length; g++) {
-        if (current.type === "BOMB") {
-          var gcx = ghostCells[g].x * BLOCK + BLOCK / 2;
-          var gcy = ghostCells[g].y * BLOCK + BLOCK / 2;
-          boardCtx.beginPath();
-          boardCtx.arc(gcx, gcy, (BLOCK - 4) / 2, 0, Math.PI * 2);
-          boardCtx.strokeStyle = "rgba(255,69,0,0.35)";
-          boardCtx.lineWidth = 2;
-          boardCtx.stroke();
-          boardCtx.strokeStyle = "rgba(255,69,0,0.12)";
-          boardCtx.lineWidth = 1;
-          boardCtx.strokeRect((ghostCells[g].x - 2) * BLOCK, (ghostCells[g].y - 1) * BLOCK, 5 * BLOCK, 3 * BLOCK);
+    var ghostY=getGhostY();
+    if(ghostY!==current.y){
+      var gc=getCells(current.type,current.rotation,current.x,ghostY);
+      for(var g=0;g<gc.length;g++){
+        if(current.type==="BOMB"){
+          var gcx2=gc[g].x*BLOCK+BLOCK/2,gcy2=gc[g].y*BLOCK+BLOCK/2;
+          boardCtx.beginPath();boardCtx.arc(gcx2,gcy2,(BLOCK-4)/2,0,Math.PI*2);
+          boardCtx.strokeStyle="rgba(255,69,0,0.35)";boardCtx.lineWidth=2;boardCtx.stroke();
+          boardCtx.strokeStyle="rgba(255,69,0,0.12)";boardCtx.lineWidth=1;
+          boardCtx.strokeRect((gc[g].x-2)*BLOCK,(gc[g].y-1)*BLOCK,5*BLOCK,3*BLOCK);
         } else {
-          boardCtx.fillStyle = "rgba(125,180,255,0.15)";
-          boardCtx.fillRect(ghostCells[g].x * BLOCK + 1, ghostCells[g].y * BLOCK + 1, BLOCK - 2, BLOCK - 2);
-          boardCtx.strokeStyle = "rgba(125,180,255,0.4)";
-          boardCtx.lineWidth = 1;
-          boardCtx.strokeRect(ghostCells[g].x * BLOCK + 1, ghostCells[g].y * BLOCK + 1, BLOCK - 2, BLOCK - 2);
+          boardCtx.fillStyle="rgba(125,180,255,0.15)";
+          boardCtx.fillRect(gc[g].x*BLOCK+1,gc[g].y*BLOCK+1,BLOCK-2,BLOCK-2);
+          boardCtx.strokeStyle="rgba(125,180,255,0.4)";boardCtx.lineWidth=1;
+          boardCtx.strokeRect(gc[g].x*BLOCK+1,gc[g].y*BLOCK+1,BLOCK-2,BLOCK-2);
         }
       }
     }
 
-    // Current piece
-    if (current.type === "BOMB") {
-      drawBomb(boardCtx, current.x, current.y, BLOCK, now);
-    } else {
-      var cells = getCells(current.type, current.rotation, current.x, current.y);
-      for (var i = 0; i < cells.length; i++)
-        drawBlock(boardCtx, cells[i].x, cells[i].y, COLORS[current.type]);
+    if(current.type==="BOMB") drawBomb(boardCtx,current.x,current.y,BLOCK,now);
+    else { var cl=getCells(current.type,current.rotation,current.x,current.y);
+      for(var i=0;i<cl.length;i++) drawBlock(boardCtx,cl[i].x,cl[i].y,COLORS[current.type]);
     }
 
-    // Pending garbage indicator (red bar on left)
-    if (pendingGarbage > 0) {
-      var gh = Math.min(pendingGarbage, ROWS) * BLOCK;
-      boardCtx.fillStyle = "rgba(255,50,50,0.6)";
-      boardCtx.fillRect(0, boardCanvas.height - gh, 4, gh);
+    if(pendingGarbage>0){
+      var gh2=Math.min(pendingGarbage,ROWS)*BLOCK;
+      boardCtx.fillStyle="rgba(255,50,50,0.6)";
+      boardCtx.fillRect(0,boardCanvas.height-gh2,4,gh2);
     }
-
     boardCtx.restore();
   }
 
   function drawOppBoard() {
-    oppCtx.fillStyle = "#0a0f2e";
-    oppCtx.fillRect(0, 0, oppCanvas.width, oppCanvas.height);
-
-    if (!oppBoard || oppBoard.length === 0) return;
-
-    // Grid
-    oppCtx.strokeStyle = "rgba(30,58,110,0.2)";
-    oppCtx.lineWidth = 0.5;
-    for (var c = 1; c < COLS; c++) {
-      oppCtx.beginPath();
-      oppCtx.moveTo(c * OPP_BLOCK, 0);
-      oppCtx.lineTo(c * OPP_BLOCK, ROWS * OPP_BLOCK);
-      oppCtx.stroke();
-    }
-
-    for (var r = 0; r < ROWS; r++) {
-      for (var c2 = 0; c2 < COLS; c2++) {
-        if (oppBoard[r] && oppBoard[r][c2] && oppBoard[r][c2] !== EMPTY) {
-          var color = COLORS[oppBoard[r][c2]] || "#3a3a5c";
-          if (oppBoard[r][c2] === "G") color = "#3a3a5c";
-          oppCtx.fillStyle = color;
-          oppCtx.fillRect(c2 * OPP_BLOCK + 1, r * OPP_BLOCK + 1, OPP_BLOCK - 2, OPP_BLOCK - 2);
+    oppCtx.fillStyle="#0a0f2e"; oppCtx.fillRect(0,0,oppCanvas.width,oppCanvas.height);
+    if(!oppBoard||oppBoard.length===0) return;
+    oppCtx.strokeStyle="rgba(30,58,110,0.2)"; oppCtx.lineWidth=0.5;
+    for(var c=1;c<COLS;c++){oppCtx.beginPath();oppCtx.moveTo(c*OPP_BLOCK,0);oppCtx.lineTo(c*OPP_BLOCK,ROWS*OPP_BLOCK);oppCtx.stroke();}
+    for(var r=0;r<ROWS;r++){
+      for(var c2=0;c2<COLS;c2++){
+        if(oppBoard[r]&&oppBoard[r][c2]&&oppBoard[r][c2]!==EMPTY){
+          var col=COLORS[oppBoard[r][c2]]||"#3a3a5c";
+          if(oppBoard[r][c2]==="G") col="#3a3a5c";
+          oppCtx.fillStyle=col;
+          oppCtx.fillRect(c2*OPP_BLOCK+1,r*OPP_BLOCK+1,OPP_BLOCK-2,OPP_BLOCK-2);
         }
       }
     }
-
-    if (!oppAlive) {
-      oppCtx.fillStyle = "rgba(10,14,39,0.7)";
-      oppCtx.fillRect(0, 0, oppCanvas.width, oppCanvas.height);
-      oppCtx.fillStyle = "#ff4444";
-      oppCtx.font = "bold 16px sans-serif";
-      oppCtx.textAlign = "center";
-      oppCtx.textBaseline = "middle";
-      oppCtx.fillText("K.O.", oppCanvas.width / 2, oppCanvas.height / 2);
+    if(!oppAlive){
+      oppCtx.fillStyle="rgba(10,14,39,0.7)"; oppCtx.fillRect(0,0,oppCanvas.width,oppCanvas.height);
+      oppCtx.fillStyle="#ff4444"; oppCtx.font="bold 16px sans-serif";
+      oppCtx.textAlign="center"; oppCtx.textBaseline="middle";
+      oppCtx.fillText("K.O.",oppCanvas.width/2,oppCanvas.height/2);
     }
   }
 
+  function drawPiecePreview(ctx, canvas, type, dimmed) {
+    ctx.fillStyle = "#0d1333";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!type) return;
+
+    var sz = Math.min(canvas.width, canvas.height);
+
+    if (type === "BOMB") {
+      var bcx = canvas.width/2, bcy = canvas.height/2;
+      var br = sz * 0.3;
+      var pulse = 0.5 + 0.5*Math.sin(Date.now()*0.006);
+      ctx.globalAlpha = dimmed ? 0.4 : 1.0;
+      var glow = ctx.createRadialGradient(bcx,bcy,br*0.3,bcx,bcy,br*1.5);
+      glow.addColorStop(0,"rgba(255,100,0,"+(0.5+pulse*0.3)+")");
+      glow.addColorStop(1,"rgba(255,0,0,0)");
+      ctx.fillStyle=glow; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.beginPath(); ctx.arc(bcx,bcy,br,0,Math.PI*2);
+      ctx.fillStyle="#1a1a2e"; ctx.fill();
+      ctx.strokeStyle="#ff4500"; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle="#ff6030"; ctx.font="bold "+Math.floor(sz*0.3)+"px sans-serif";
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText("*",bcx,bcy+1);
+      ctx.globalAlpha=1; return;
+    }
+
+    var shape = SHAPES[type][0];
+    var minX=99,maxX=-1,minY=99,maxY=-1;
+    for(var i=0;i<shape.length;i++){
+      if(shape[i][0]<minX)minX=shape[i][0];
+      if(shape[i][0]>maxX)maxX=shape[i][0];
+      if(shape[i][1]<minY)minY=shape[i][1];
+      if(shape[i][1]>maxY)maxY=shape[i][1];
+    }
+    var w=maxX-minX+1, h=maxY-minY+1;
+    var bsz = Math.floor(Math.min((canvas.width-4)/w, (canvas.height-4)/h));
+    if (bsz < 4) bsz = 4;
+    var ox = (canvas.width - w*bsz)/2;
+    var oy = (canvas.height - h*bsz)/2;
+
+    ctx.globalAlpha = dimmed ? 0.4 : 1.0;
+    for(var j=0;j<shape.length;j++){
+      var px=shape[j][0]-minX, py=shape[j][1]-minY;
+      ctx.fillStyle=COLORS[type];
+      ctx.fillRect(ox+px*bsz+1, oy+py*bsz+1, bsz-2, bsz-2);
+      ctx.fillStyle="rgba(255,255,255,0.15)";
+      ctx.fillRect(ox+px*bsz+1, oy+py*bsz+1, bsz-2, Math.max(2,bsz*0.15));
+      ctx.fillRect(ox+px*bsz+1, oy+py*bsz+1, Math.max(2,bsz*0.15), bsz-2);
+    }
+    ctx.globalAlpha=1;
+  }
+
   function drawNext() {
-    nextCtx.fillStyle = "#0d1333";
-    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
-    if (!nextType) return;
-
-    if (nextType === "BOMB") {
-      var bcx = nextCanvas.width / 2, bcy = nextCanvas.height / 2;
-      var br = 16;
-      var pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
-      var glow = nextCtx.createRadialGradient(bcx, bcy, br * 0.3, bcx, bcy, br * 1.5);
-      glow.addColorStop(0, "rgba(255,100,0," + (0.5 + pulse * 0.3) + ")");
-      glow.addColorStop(1, "rgba(255,0,0,0)");
-      nextCtx.fillStyle = glow;
-      nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
-      nextCtx.beginPath();
-      nextCtx.arc(bcx, bcy, br, 0, Math.PI * 2);
-      nextCtx.fillStyle = "#1a1a2e";
-      nextCtx.fill();
-      nextCtx.strokeStyle = "#ff4500";
-      nextCtx.lineWidth = 2;
-      nextCtx.stroke();
-      nextCtx.fillStyle = "#ff6030";
-      nextCtx.font = "bold 16px sans-serif";
-      nextCtx.textAlign = "center";
-      nextCtx.textBaseline = "middle";
-      nextCtx.fillText("*", bcx, bcy + 1);
-      return;
-    }
-
-    var shape = SHAPES[nextType][0];
-    var minX = 99, maxX = -1, minY = 99, maxY = -1;
-    for (var i = 0; i < shape.length; i++) {
-      if (shape[i][0] < minX) minX = shape[i][0];
-      if (shape[i][0] > maxX) maxX = shape[i][0];
-      if (shape[i][1] < minY) minY = shape[i][1];
-      if (shape[i][1] > maxY) maxY = shape[i][1];
-    }
-    var w = maxX - minX + 1, h = maxY - minY + 1;
-    var sz = 22;
-    var ox = (nextCanvas.width - w * sz) / 2;
-    var oy = (nextCanvas.height - h * sz) / 2;
-    for (var j = 0; j < shape.length; j++) {
-      nextCtx.fillStyle = COLORS[nextType];
-      nextCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, sz - 2, sz - 2);
-      nextCtx.fillStyle = "rgba(255,255,255,0.15)";
-      nextCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, sz - 2, 3);
-      nextCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, 3, sz - 2);
-    }
+    drawPiecePreview(nextCtx, nextCanvas, nextType, false);
+    if (isMobile) drawPiecePreview(mNextCtx, mNextCanvas, nextType, false);
+  }
+  function drawHold() {
+    drawPiecePreview(holdCtx, holdCanvas, holdType, holdUsed);
+    if (isMobile) drawPiecePreview(mHoldCtx, mHoldCanvas, holdType, holdUsed);
   }
 
   function updateUI() {
     scoreEl.textContent = score;
     levelEl.textContent = level;
     linesEl.textContent = totalLines;
+    if (isMobile) {
+      mScoreEl.textContent = score;
+      mLevelEl.textContent = level;
+      mLinesEl.textContent = totalLines;
+    }
   }
 
   // ══════════════════════════════════════════
   // Game Logic
   // ══════════════════════════════════════════
-  function moveLeft() {
-    if (!current) return;
-    if (isValid(current.type, current.rotation, current.x - 1, current.y)) current.x--;
-  }
-  function moveRight() {
-    if (!current) return;
-    if (isValid(current.type, current.rotation, current.x + 1, current.y)) current.x++;
-  }
-  function moveDown() {
-    if (!current) return false;
-    if (isValid(current.type, current.rotation, current.x, current.y + 1)) {
-      current.y++;
-      return true;
-    }
+  function moveLeft(){if(!current)return;if(isValid(current.type,current.rotation,current.x-1,current.y))current.x--;}
+  function moveRight(){if(!current)return;if(isValid(current.type,current.rotation,current.x+1,current.y))current.x++;}
+  function moveDown(){
+    if(!current) return false;
+    if(isValid(current.type,current.rotation,current.x,current.y+1)){current.y++;return true;}
     return false;
   }
-  function rotate() {
-    if (!current) return;
-    if (current.type === "BOMB") return;
-    var nr = (current.rotation + 1) % 4;
-    if (isValid(current.type, nr, current.x, current.y)) { current.rotation = nr; return; }
-    var kicks = [-1, 1, -2, 2];
-    for (var i = 0; i < kicks.length; i++) {
-      if (isValid(current.type, nr, current.x + kicks[i], current.y)) {
-        current.x += kicks[i]; current.rotation = nr; return;
-      }
-    }
-    if (isValid(current.type, nr, current.x, current.y - 1)) {
-      current.y--; current.rotation = nr;
-    }
+  function rotate(){
+    if(!current)return;if(current.type==="BOMB")return;
+    var nr=(current.rotation+1)%4;
+    if(isValid(current.type,nr,current.x,current.y)){current.rotation=nr;return;}
+    var kicks=[-1,1,-2,2];
+    for(var i=0;i<kicks.length;i++){if(isValid(current.type,nr,current.x+kicks[i],current.y)){current.x+=kicks[i];current.rotation=nr;return;}}
+    if(isValid(current.type,nr,current.x,current.y-1)){current.y--;current.rotation=nr;}
   }
+
   function holdPiece() {
-    if (!current) return;
-    if (holdUsed) return; // already held once this turn
-    if (current.type === "BOMB") return; // can't hold bombs
-
-    holdUsed = true;
-    var prevHold = holdType;
-    holdType = current.type;
-
-    if (prevHold) {
-      current = spawnPiece(prevHold);
-    } else {
-      current = spawnPiece(nextType || pickNextType());
-      nextType = pickNextType();
-      drawNext();
-    }
-
+    if(!current||holdUsed)return;
+    if(current.type==="BOMB")return;
+    holdUsed=true;
+    var prev=holdType; holdType=current.type;
+    if(prev){current=spawnPiece(prev);}
+    else{current=spawnPiece(nextType||pickNextType());nextType=pickNextType();drawNext();}
     drawHold();
-
-    if (!isValid(current.type, current.rotation, current.x, current.y)) {
-      triggerGameOver();
-    }
+    if(!isValid(current.type,current.rotation,current.x,current.y)) triggerGameOver();
   }
 
-  function drawHold() {
-    holdCtx.fillStyle = "#0d1333";
-    holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
-    if (!holdType) return;
-
-    if (holdType === "BOMB") {
-      // shouldn't happen but safety
-      return;
-    }
-
-    var shape = SHAPES[holdType][0];
-    var minX = 99, maxX = -1, minY = 99, maxY = -1;
-    for (var i = 0; i < shape.length; i++) {
-      if (shape[i][0] < minX) minX = shape[i][0];
-      if (shape[i][0] > maxX) maxX = shape[i][0];
-      if (shape[i][1] < minY) minY = shape[i][1];
-      if (shape[i][1] > maxY) maxY = shape[i][1];
-    }
-    var w = maxX - minX + 1, h = maxY - minY + 1;
-    var sz = 22;
-    var ox = (holdCanvas.width - w * sz) / 2;
-    var oy = (holdCanvas.height - h * sz) / 2;
-
-    var dimAlpha = holdUsed ? 0.4 : 1.0;
-    holdCtx.globalAlpha = dimAlpha;
-    for (var j = 0; j < shape.length; j++) {
-      holdCtx.fillStyle = COLORS[holdType];
-      holdCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, sz - 2, sz - 2);
-      holdCtx.fillStyle = "rgba(255,255,255,0.15)";
-      holdCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, sz - 2, 3);
-      holdCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, 3, sz - 2);
-    }
-    holdCtx.globalAlpha = 1.0;
+  function hardDrop(){
+    if(!current)return;
+    var rows=0;
+    while(isValid(current.type,current.rotation,current.x,current.y+1)){current.y++;rows++;}
+    score+=rows*2; placePiece();
   }
 
-  function hardDrop() {
-    if (!current) return;
-    var rows = 0;
-    while (isValid(current.type, current.rotation, current.x, current.y + 1)) {
-      current.y++; rows++;
-    }
-    score += rows * 2;
-    placePiece();
-  }
-
-  function triggerExplosion(cx, cy) {
-    var pixelCX = cx * BLOCK + BLOCK / 2;
-    var pixelCY = cy * BLOCK + BLOCK / 2;
-    var destroyedCount = 0;
-
-    for (var dy = -1; dy <= 1; dy++) {
-      for (var dx = -2; dx <= 2; dx++) {
-        var bx = cx + dx, by = cy + dy;
-        if (bx >= 0 && bx < COLS && by >= 0 && by < ROWS) {
-          if (board[by][bx] !== EMPTY) {
-            var debrisColor = COLORS[board[by][bx]] || "#ff8844";
-            for (var d = 0; d < 3; d++) {
-              explosionParticles.push({
-                type:"debris", x: bx*BLOCK+BLOCK/2, y: by*BLOCK+BLOCK/2,
-                vx: dx*3+(Math.random()-0.5)*6, vy: dy*3+(Math.random()-0.5)*4-3,
-                size: 4+Math.random()*6, color: debrisColor,
-                life: 1.0, decay: 0.015+Math.random()*0.01, gravity: 0.15
-              });
-            }
-            destroyedCount++;
-          }
-          board[by][bx] = EMPTY;
+  function triggerExplosion(cx,cy){
+    var pcx=cx*BLOCK+BLOCK/2,pcy=cy*BLOCK+BLOCK/2,dc=0;
+    for(var dy=-1;dy<=1;dy++){for(var dx=-2;dx<=2;dx++){
+      var bx=cx+dx,by=cy+dy;
+      if(bx>=0&&bx<COLS&&by>=0&&by<ROWS){
+        if(board[by][bx]!==EMPTY){
+          var dc2=COLORS[board[by][bx]]||"#ff8844";
+          for(var d=0;d<3;d++){explosionParticles.push({type:"debris",x:bx*BLOCK+BLOCK/2,y:by*BLOCK+BLOCK/2,vx:dx*3+(Math.random()-0.5)*6,vy:dy*3+(Math.random()-0.5)*4-3,size:4+Math.random()*6,color:dc2,life:1.0,decay:0.015+Math.random()*0.01,gravity:0.15});}
+          dc++;
         }
+        board[by][bx]=EMPTY;
       }
-    }
-
-    for (var ring = 0; ring < 3; ring++) {
-      explosionParticles.push({
-        type:"ring", x:pixelCX, y:pixelCY,
-        radius: 10+ring*5, expandSpeed: 3+ring*1.5, width: 4-ring,
-        color: ring===0?"#ffffff":(ring===1?"#ff8844":"#ff4400"),
-        life: 1.0, decay: 0.025
-      });
-    }
-
-    for (var s = 0; s < 40; s++) {
-      var angle = Math.random()*Math.PI*2;
-      var spd = 2+Math.random()*6;
-      var sColors = ["#ffffff","#ffdd44","#ff8800","#ff4400","#ff2200"];
-      explosionParticles.push({
-        type:"spark", x:pixelCX, y:pixelCY,
-        vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd-2,
-        size: 2+Math.random()*4,
-        color: sColors[Math.floor(Math.random()*sColors.length)],
-        life: 0.6+Math.random()*0.4, decay: 0.012+Math.random()*0.008, gravity: 0.08
-      });
-    }
-
-    explosionFlash = 1.0;
-    screenShake = 12;
-    score += destroyedCount * 15 * level;
+    }}
+    for(var ring=0;ring<3;ring++){explosionParticles.push({type:"ring",x:pcx,y:pcy,radius:10+ring*5,expandSpeed:3+ring*1.5,width:4-ring,color:ring===0?"#ffffff":(ring===1?"#ff8844":"#ff4400"),life:1.0,decay:0.025});}
+    for(var s=0;s<40;s++){var an=Math.random()*Math.PI*2,sp=2+Math.random()*6;var sc=["#ffffff","#ffdd44","#ff8800","#ff4400","#ff2200"];explosionParticles.push({type:"spark",x:pcx,y:pcy,vx:Math.cos(an)*sp,vy:Math.sin(an)*sp-2,size:2+Math.random()*4,color:sc[Math.floor(Math.random()*sc.length)],life:0.6+Math.random()*0.4,decay:0.012+Math.random()*0.008,gravity:0.08});}
+    explosionFlash=1.0;screenShake=12;score+=dc*15*level;
   }
 
-  function updateParticles() {
-    for (var i = explosionParticles.length - 1; i >= 0; i--) {
-      var pt = explosionParticles[i];
-      pt.life -= pt.decay;
-      if (pt.type === "ring") { pt.radius += pt.expandSpeed; }
-      else { pt.x += pt.vx; pt.y += pt.vy; if (pt.gravity) pt.vy += pt.gravity; pt.vx *= 0.98; }
-      if (pt.life <= 0) explosionParticles.splice(i, 1);
+  function updateParticles(){
+    for(var i=explosionParticles.length-1;i>=0;i--){
+      var pt=explosionParticles[i];pt.life-=pt.decay;
+      if(pt.type==="ring")pt.radius+=pt.expandSpeed;
+      else{pt.x+=pt.vx;pt.y+=pt.vy;if(pt.gravity)pt.vy+=pt.gravity;pt.vx*=0.98;}
+      if(pt.life<=0)explosionParticles.splice(i,1);
     }
-    if (explosionFlash > 0) explosionFlash -= 0.05;
-    if (explosionFlash < 0) explosionFlash = 0;
-    if (screenShake > 0) screenShake -= 0.6;
-    if (screenShake < 0) screenShake = 0;
+    if(explosionFlash>0)explosionFlash-=0.05;if(explosionFlash<0)explosionFlash=0;
+    if(screenShake>0)screenShake-=0.6;if(screenShake<0)screenShake=0;
   }
 
-  function applyGravity() {
-    var moved = true;
-    while (moved) {
-      moved = false;
-      for (var r = ROWS - 2; r >= 0; r--) {
-        for (var c = 0; c < COLS; c++) {
-          if (board[r][c] !== EMPTY && board[r + 1][c] === EMPTY) {
-            board[r + 1][c] = board[r][c]; board[r][c] = EMPTY; moved = true;
-          }
-        }
-      }
-    }
+  function applyGravity(){
+    var moved=true;
+    while(moved){moved=false;for(var r=ROWS-2;r>=0;r--){for(var c=0;c<COLS;c++){if(board[r][c]!==EMPTY&&board[r+1][c]===EMPTY){board[r+1][c]=board[r][c];board[r][c]=EMPTY;moved=true;}}}}
   }
 
-  function placePiece() {
-    if (!current) return;
-
-    var linesCleared = 0;
-
-    if (current.type === "BOMB") {
-      triggerExplosion(current.x, current.y);
-      applyGravity();
-      linesCleared = clearLines();
-    } else {
-      lockPiece();
-      linesCleared = clearLines();
+  function placePiece(){
+    if(!current)return;
+    var lc=0;
+    if(current.type==="BOMB"){triggerExplosion(current.x,current.y);applyGravity();lc=clearLines();}
+    else{lockPiece();lc=clearLines();}
+    if(lc>0){
+      score+=getLineScore(lc)*level;totalLines+=lc;level=Math.floor(totalLines/10)+1;
+      if(isMultiplayer&&conn&&conn.open){var gb=getGarbage(lc);if(gb>0)sendData({type:"attack",lines:gb});}
     }
-
-    if (linesCleared > 0) {
-      score += getLineScore(linesCleared) * level;
-      totalLines += linesCleared;
-      level = Math.floor(totalLines / 10) + 1;
-
-      // Send garbage in multiplayer
-      if (isMultiplayer && conn && conn.open) {
-        var garbage = getGarbage(linesCleared);
-        if (garbage > 0) {
-          sendData({ type: "attack", lines: garbage });
-        }
-      }
-    }
-
-    // Apply any pending garbage after placing
-    if (pendingGarbage > 0) {
-      addGarbageLines(pendingGarbage);
-      pendingGarbage = 0;
-    }
-
-    updateUI();
-    sendState();
-    spawnNext();
+    if(pendingGarbage>0){addGarbageLines(pendingGarbage);pendingGarbage=0;}
+    updateUI();sendState();spawnNext();
   }
 
-  function spawnNext() {
-    current = spawnPiece(nextType || pickNextType());
-    nextType = pickNextType();
-    holdUsed = false;
-    drawNext();
-    drawHold();
-
-    if (!isValid(current.type, current.rotation, current.x, current.y)) {
-      triggerGameOver();
-    }
+  function spawnNext(){
+    current=spawnPiece(nextType||pickNextType());
+    nextType=pickNextType();holdUsed=false;
+    drawNext();drawHold();
+    if(!isValid(current.type,current.rotation,current.x,current.y))triggerGameOver();
   }
 
-  function triggerGameOver() {
-    gameState = "gameover";
-    current = null;
-
-    if (isMultiplayer && conn && conn.open) {
-      sendData({ type: "gameover" });
-      showOverlay("YOU LOSE", "Opponent wins! Press any key for menu");
-    } else {
-      showOverlay("GAME OVER", "Press any key to restart");
-    }
+  function triggerGameOver(){
+    gameState="gameover";current=null;
+    if(isMultiplayer&&conn&&conn.open){sendData({type:"gameover"});showOverlay("YOU LOSE","Opponent wins! Tap for menu");}
+    else showOverlay("GAME OVER", isMobile?"Tap to restart":"Press any key to restart");
   }
 
-  function showOverlay(title, msg) {
-    overlayTitle.textContent = title;
-    overlayMsg.textContent = msg;
-    overlay.style.display = "flex";
-  }
-  function hideOverlay() {
-    overlay.style.display = "none";
-  }
+  function showOverlay(t,m){overlayTitle.textContent=t;overlayMsg.textContent=m;overlay.style.display="flex";}
+  function hideOverlay(){overlay.style.display="none";}
 
-  // ══════════════════════════════════════════
-  // Attack Warning Animation
-  // ══════════════════════════════════════════
-  function showAttackWarning(lines) {
-    attackWarning.textContent = "+" + lines + " LINES!";
-    attackWarning.style.opacity = "1";
-    attackWarning.style.transition = "none";
-    attackWarnTimer = setTimeout(function () {
-      attackWarning.style.transition = "opacity 0.5s";
-      attackWarning.style.opacity = "0";
-    }, 800);
+  function showAttackWarning(lines){
+    attackWarning.textContent="+"+lines+" LINES!";
+    attackWarning.style.opacity="1";attackWarning.style.transition="none";
+    if(attackWarnTimer)clearTimeout(attackWarnTimer);
+    attackWarnTimer=setTimeout(function(){attackWarning.style.transition="opacity 0.5s";attackWarning.style.opacity="0";},800);
   }
 
   // ══════════════════════════════════════════
   // Network (PeerJS)
   // ══════════════════════════════════════════
-  function generateRoomCode() {
-    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    var code = "";
-    for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-    return code;
-  }
+  function generateRoomCode(){var ch="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",co="";for(var i=0;i<6;i++)co+=ch[Math.floor(Math.random()*ch.length)];return co;}
+  function sendData(data){if(conn&&conn.open){try{conn.send(data);}catch(e){}}}
+  function sendState(){if(!isMultiplayer||!conn||!conn.open)return;sendData({type:"state",board:board,score:score,lines:totalLines,level:level});}
 
-  function sendData(data) {
-    if (conn && conn.open) {
-      try { conn.send(data); } catch (e) { /* ignore */ }
+  function handleData(data){
+    if(!data||!data.type)return;
+    switch(data.type){
+      case"state":oppBoard=data.board||[];oppScore=data.score||0;oppLines=data.lines||0;oppScoreEl.textContent=oppScore;oppLinesEl.textContent=oppLines;drawOppBoard();break;
+      case"attack":var ln=data.lines||0;if(ln>0&&gameState==="playing"){pendingGarbage+=ln;showAttackWarning(ln);screenShake=6;}break;
+      case"gameover":oppAlive=false;drawOppBoard();if(gameState==="playing"){gameState="gameover";current=null;showOverlay("YOU WIN!",isMobile?"Tap for menu":"Press any key for menu");}break;
+      case"start":if(gameState!=="playing")startCountdown();break;
+      case"restart":startCountdown();break;
     }
   }
 
-  function sendState() {
-    if (!isMultiplayer || !conn || !conn.open) return;
-    sendData({
-      type: "state",
-      board: board,
-      score: score,
-      lines: totalLines,
-      level: level
-    });
+  function cleanupNetwork(){if(conn){try{conn.close();}catch(e){}conn=null;}if(peer){try{peer.destroy();}catch(e){}peer=null;}myRoomCode="";isHost=false;}
+
+  function setupConnection(connection){
+    conn=connection;
+    conn.on("data",function(d){handleData(d);});
+    conn.on("close",function(){if(gameState==="playing"){oppAlive=false;drawOppBoard();gameState="gameover";current=null;showOverlay("OPPONENT LEFT",isMobile?"Tap for menu":"Press any key for menu");}});
+    conn.on("error",function(){if(gameState==="playing"){gameState="gameover";current=null;showOverlay("CONNECTION ERROR",isMobile?"Tap for menu":"Press any key for menu");}});
   }
 
-  function handleData(data) {
-    if (!data || !data.type) return;
-
-    switch (data.type) {
-      case "state":
-        oppBoard = data.board || [];
-        oppScore = data.score || 0;
-        oppLines = data.lines || 0;
-        oppScoreEl.textContent = oppScore;
-        oppLinesEl.textContent = oppLines;
-        drawOppBoard();
-        break;
-
-      case "attack":
-        var lines = data.lines || 0;
-        if (lines > 0 && gameState === "playing") {
-          pendingGarbage += lines;
-          showAttackWarning(lines);
-          screenShake = 6;
-        }
-        break;
-
-      case "gameover":
-        oppAlive = false;
-        drawOppBoard();
-        if (gameState === "playing") {
-          gameState = "gameover";
-          current = null;
-          showOverlay("YOU WIN!", "Press any key for menu");
-        }
-        break;
-
-      case "start":
-        if (gameState !== "playing") {
-          startCountdown();
-        }
-        break;
-
-      case "restart":
-        startCountdown();
-        break;
-    }
-  }
-
-  function cleanupNetwork() {
-    if (conn) { try { conn.close(); } catch(e){} conn = null; }
-    if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
-    myRoomCode = "";
-    isHost = false;
-  }
-
-  function setupConnection(connection) {
-    conn = connection;
-
-    conn.on("data", function (data) {
-      handleData(data);
-    });
-
-    conn.on("close", function () {
-      if (gameState === "playing") {
-        oppAlive = false;
-        drawOppBoard();
-        gameState = "gameover";
-        current = null;
-        showOverlay("OPPONENT LEFT", "Press any key for menu");
-      }
-    });
-
-    conn.on("error", function () {
-      if (gameState === "playing") {
-        gameState = "gameover";
-        current = null;
-        showOverlay("CONNECTION ERROR", "Press any key for menu");
-      }
-    });
-  }
-
-  // ══════════════════════════════════════════
-  // Countdown
-  // ══════════════════════════════════════════
-  function startCountdown() {
-    gameState = "countdown";
-    countdownVal = 3;
-    showOverlay("" + countdownVal, "Get Ready!");
-
-    if (countdownTimer) clearInterval(countdownTimer);
-    countdownTimer = setInterval(function () {
-      countdownVal--;
-      if (countdownVal > 0) {
-        showOverlay("" + countdownVal, "Get Ready!");
-      } else {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-        startGamePlay();
-      }
-    }, 1000);
+  function startCountdown(){
+    gameState="countdown";countdownVal=3;
+    showOverlay(""+countdownVal,"Get Ready!");
+    if(countdownTimer)clearInterval(countdownTimer);
+    countdownTimer=setInterval(function(){countdownVal--;if(countdownVal>0)showOverlay(""+countdownVal,"Get Ready!");else{clearInterval(countdownTimer);countdownTimer=null;startGamePlay();}},1000);
   }
 
   // ══════════════════════════════════════════
   // Game Loop
   // ══════════════════════════════════════════
-  var stateTimer = 0;
-
-  function gameLoop(timestamp) {
-    if (gameState !== "playing") {
-      drawBoard();
-      if (isMultiplayer) drawOppBoard();
-      animFrameId = requestAnimationFrame(gameLoop);
-      return;
-    }
-
-    var dt = timestamp - lastTime;
-    lastTime = timestamp;
-    dropTimer += dt;
-    stateTimer += dt;
-
-    var speed = getSpeed(level);
-    if (dropTimer >= speed) {
-      dropTimer = 0;
-      if (!moveDown()) placePiece();
-    }
-
-    // Send state periodically in multiplayer
-    if (isMultiplayer && stateTimer >= 150) {
-      stateTimer = 0;
-      sendState();
-    }
-
-    updateParticles();
-    drawBoard();
-    if (nextType === "BOMB" || (current && current.type === "BOMB")) drawNext();
-    if (isMultiplayer) drawOppBoard();
-
-    animFrameId = requestAnimationFrame(gameLoop);
+  var stateTimer=0;
+  function gameLoop(timestamp){
+    if(gameState!=="playing"){drawBoard();if(isMultiplayer)drawOppBoard();animFrameId=requestAnimationFrame(gameLoop);return;}
+    var dt=timestamp-lastTime;lastTime=timestamp;dropTimer+=dt;stateTimer+=dt;
+    var speed=getSpeed(level);
+    if(dropTimer>=speed){dropTimer=0;if(!moveDown())placePiece();}
+    if(isMultiplayer&&stateTimer>=150){stateTimer=0;sendState();}
+    updateParticles();drawBoard();
+    if(nextType==="BOMB"||(current&&current.type==="BOMB"))drawNext();
+    if(isMultiplayer)drawOppBoard();
+    animFrameId=requestAnimationFrame(gameLoop);
   }
 
-  function resetGameState() {
-    board = createBoard();
-    score = 0;
-    level = 1;
-    totalLines = 0;
-    dropTimer = 0;
-    stateTimer = 0;
-    bag = [];
-    current = null;
-    nextType = null;
-    explosionParticles = [];
-    explosionFlash = 0;
-    screenShake = 0;
-    pendingGarbage = 0;
-    holdType = null;
-    holdUsed = false;
-    oppBoard = createBoard();
-    oppScore = 0;
-    oppLines = 0;
-    oppAlive = true;
-    oppScoreEl.textContent = "0";
-    oppLinesEl.textContent = "0";
+  function resetGameState(){
+    board=createBoard();score=0;level=1;totalLines=0;dropTimer=0;stateTimer=0;
+    bag=[];current=null;nextType=null;holdType=null;holdUsed=false;
+    explosionParticles=[];explosionFlash=0;screenShake=0;pendingGarbage=0;
+    oppBoard=createBoard();oppScore=0;oppLines=0;oppAlive=true;
+    oppScoreEl.textContent="0";oppLinesEl.textContent="0";
     updateUI();
   }
 
-  function startGamePlay() {
-    resetGameState();
-    nextType = pickNextType();
-    spawnNext();
-    gameState = "playing";
-    hideOverlay();
-    lastTime = performance.now();
-    if (animFrameId) cancelAnimationFrame(animFrameId);
-    animFrameId = requestAnimationFrame(gameLoop);
+  function startGamePlay(){
+    resetGameState();nextType=pickNextType();spawnNext();
+    gameState="playing";hideOverlay();
+    lastTime=performance.now();
+    if(animFrameId)cancelAnimationFrame(animFrameId);
+    animFrameId=requestAnimationFrame(gameLoop);
   }
 
-  function startSinglePlayer() {
-    isMultiplayer = false;
-    menuScreen.style.display = "none";
-    lobbyScreen.style.display = "none";
-    gameScreen.style.display = "block";
+  function startSinglePlayer(){
+    isMultiplayer=false;
+    menuScreen.style.display="none";lobbyScreen.style.display="none";gameScreen.style.display="block";
     oppArea.classList.remove("active");
-    showOverlay("TETRIS", "Press any key to start");
-    gameState = "idle";
-    holdType = null;
-    holdUsed = false;
-    drawBoard();
-    drawNext();
-    drawHold();
-    if (animFrameId) cancelAnimationFrame(animFrameId);
+    holdType=null;holdUsed=false;
+    resizeGame();
+    showOverlay("TETRIS",isMobile?"Tap to start":"Press any key to start");
+    gameState="idle";drawBoard();drawNext();drawHold();
+    if(animFrameId)cancelAnimationFrame(animFrameId);
   }
 
-  function startMultiplayerGame() {
-    menuScreen.style.display = "none";
-    lobbyScreen.style.display = "none";
-    gameScreen.style.display = "block";
+  function startMultiplayerGame(){
+    menuScreen.style.display="none";lobbyScreen.style.display="none";gameScreen.style.display="block";
     oppArea.classList.add("active");
-    resetGameState();
-    drawBoard();
-    drawNext();
-    drawOppBoard();
-
-    if (isHost) {
-      sendData({ type: "start" });
-    }
+    resizeGame();resetGameState();drawBoard();drawNext();drawHold();drawOppBoard();
+    if(isHost)sendData({type:"start"});
     startCountdown();
   }
 
   // ══════════════════════════════════════════
   // Menu & Lobby
   // ══════════════════════════════════════════
-  function showMenu() {
-    cleanupNetwork();
-    isMultiplayer = false;
-    gameState = "idle";
-    if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-
-    menuScreen.style.display = "flex";
-    lobbyScreen.style.display = "none";
-    gameScreen.style.display = "none";
-
-    // Reset lobby UI
-    roomCodeEl.style.display = "none";
-    createStatus.textContent = "";
-    joinStatus.textContent = "";
-    joinInput.value = "";
-    btnCreate.disabled = false;
-    btnJoin.disabled = false;
+  function showMenu(){
+    cleanupNetwork();isMultiplayer=false;gameState="idle";
+    if(animFrameId){cancelAnimationFrame(animFrameId);animFrameId=null;}
+    if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+    menuScreen.style.display="flex";lobbyScreen.style.display="none";gameScreen.style.display="none";
+    roomCodeEl.style.display="none";createStatus.textContent="";joinStatus.textContent="";
+    joinInput.value="";btnCreate.disabled=false;btnJoin.disabled=false;
   }
 
-  function showLobby() {
-    menuScreen.style.display = "none";
-    lobbyScreen.style.display = "flex";
-    gameScreen.style.display = "none";
-  }
+  function showLobby(){menuScreen.style.display="none";lobbyScreen.style.display="flex";gameScreen.style.display="none";}
 
-  btnSingle.addEventListener("click", function () {
-    startSinglePlayer();
+  btnSingle.addEventListener("click",function(){startSinglePlayer();});
+  btnMulti.addEventListener("click",function(){showLobby();});
+  btnLobbyBack.addEventListener("click",function(){cleanupNetwork();showMenu();});
+
+  btnCreate.addEventListener("click",function(){
+    btnCreate.disabled=true;btnJoin.disabled=true;createStatus.textContent="Creating room...";
+    myRoomCode=generateRoomCode();isHost=true;isMultiplayer=true;
+    peer=new Peer("tetris-"+myRoomCode,{debug:0,config:{iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]}});
+    peer.on("open",function(){roomCodeEl.textContent=myRoomCode;roomCodeEl.style.display="block";createStatus.textContent="Waiting for opponent...";});
+    peer.on("connection",function(c){setupConnection(c);createStatus.textContent="Opponent connected!";setTimeout(function(){startMultiplayerGame();},500);});
+    peer.on("error",function(err){createStatus.textContent="Error: "+(err.type||"Connection failed");btnCreate.disabled=false;btnJoin.disabled=false;cleanupNetwork();});
   });
 
-  btnMulti.addEventListener("click", function () {
-    showLobby();
+  btnJoin.addEventListener("click",function(){
+    var code=joinInput.value.trim().toUpperCase();
+    if(code.length<4){joinStatus.textContent="Please enter a valid room code";return;}
+    btnCreate.disabled=true;btnJoin.disabled=true;joinStatus.textContent="Connecting...";
+    isHost=false;isMultiplayer=true;
+    peer=new Peer(undefined,{debug:0,config:{iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]}});
+    peer.on("open",function(){
+      var c2=peer.connect("tetris-"+code,{reliable:true});
+      c2.on("open",function(){setupConnection(c2);joinStatus.textContent="Connected!";setTimeout(function(){startMultiplayerGame();},500);});
+      c2.on("error",function(){joinStatus.textContent="Failed to connect.";btnCreate.disabled=false;btnJoin.disabled=false;cleanupNetwork();});
+      setTimeout(function(){if(!conn||!conn.open){joinStatus.textContent="Connection timed out.";btnCreate.disabled=false;btnJoin.disabled=false;cleanupNetwork();}},10000);
+    });
+    peer.on("error",function(err){joinStatus.textContent="Error: "+(err.type||"Connection failed");btnCreate.disabled=false;btnJoin.disabled=false;cleanupNetwork();});
   });
 
-  btnLobbyBack.addEventListener("click", function () {
-    cleanupNetwork();
-    showMenu();
-  });
-
-  btnCreate.addEventListener("click", function () {
-    btnCreate.disabled = true;
-    btnJoin.disabled = true;
-    createStatus.textContent = "Creating room...";
-
-    myRoomCode = generateRoomCode();
-    isHost = true;
-    isMultiplayer = true;
-
-    peer = new Peer("tetris-" + myRoomCode, {
-      debug: 0,
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" }
-        ]
-      }
-    });
-
-    peer.on("open", function () {
-      roomCodeEl.textContent = myRoomCode;
-      roomCodeEl.style.display = "block";
-      createStatus.textContent = "Waiting for opponent...";
-    });
-
-    peer.on("connection", function (connection) {
-      setupConnection(connection);
-      createStatus.textContent = "Opponent connected!";
-      setTimeout(function () {
-        startMultiplayerGame();
-      }, 500);
-    });
-
-    peer.on("error", function (err) {
-      createStatus.textContent = "Error: " + (err.type || "Connection failed");
-      btnCreate.disabled = false;
-      btnJoin.disabled = false;
-      cleanupNetwork();
-    });
-  });
-
-  btnJoin.addEventListener("click", function () {
-    var code = joinInput.value.trim().toUpperCase();
-    if (code.length < 4) {
-      joinStatus.textContent = "Please enter a valid room code";
-      return;
-    }
-
-    btnCreate.disabled = true;
-    btnJoin.disabled = true;
-    joinStatus.textContent = "Connecting...";
-    isHost = false;
-    isMultiplayer = true;
-
-    peer = new Peer(undefined, {
-      debug: 0,
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" }
-        ]
-      }
-    });
-
-    peer.on("open", function () {
-      var connection = peer.connect("tetris-" + code, { reliable: true });
-
-      connection.on("open", function () {
-        setupConnection(connection);
-        joinStatus.textContent = "Connected!";
-        setTimeout(function () {
-          startMultiplayerGame();
-        }, 500);
-      });
-
-      connection.on("error", function () {
-        joinStatus.textContent = "Failed to connect. Check room code.";
-        btnCreate.disabled = false;
-        btnJoin.disabled = false;
-        cleanupNetwork();
-      });
-
-      // Timeout
-      setTimeout(function () {
-        if (!conn || !conn.open) {
-          joinStatus.textContent = "Connection timed out. Check room code.";
-          btnCreate.disabled = false;
-          btnJoin.disabled = false;
-          cleanupNetwork();
-        }
-      }, 10000);
-    });
-
-    peer.on("error", function (err) {
-      joinStatus.textContent = "Error: " + (err.type || "Connection failed");
-      btnCreate.disabled = false;
-      btnJoin.disabled = false;
-      cleanupNetwork();
-    });
-  });
-
-  // Enter key in join input
-  joinInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") btnJoin.click();
-  });
+  joinInput.addEventListener("keydown",function(e){if(e.key==="Enter")btnJoin.click();});
 
   // ══════════════════════════════════════════
-  // Input
+  // Keyboard Input
   // ══════════════════════════════════════════
-  document.addEventListener("keydown", function (e) {
-    // Don't capture input when in menu/lobby
-    if (menuScreen.style.display !== "none" || lobbyScreen.style.display !== "none") return;
+  document.addEventListener("keydown",function(e){
+    if(menuScreen.style.display!=="none"||lobbyScreen.style.display!=="none")return;
+    var gk=["ArrowLeft","ArrowRight","ArrowDown","ArrowUp"," ","Space","q","Q"];
+    if(gk.indexOf(e.key)!==-1||gk.indexOf(e.code)!==-1)e.preventDefault();
 
-    var gameKeys = ["ArrowLeft","ArrowRight","ArrowDown","ArrowUp"," ","Space","q","Q"];
-    if (gameKeys.indexOf(e.key) !== -1 || gameKeys.indexOf(e.code) !== -1) {
-      e.preventDefault();
-    }
-
-    if (gameState === "idle") {
-      startGamePlay();
+    if(gameState==="idle"){startGamePlay();return;}
+    if(gameState==="gameover"){if(isMultiplayer)showMenu();else startGamePlay();return;}
+    if((e.key==="p"||e.key==="P")&&!isMultiplayer){
+      if(gameState==="playing"){gameState="paused";showOverlay("PAUSED","Press P to resume");}
+      else if(gameState==="paused"){gameState="playing";hideOverlay();lastTime=performance.now();dropTimer=0;animFrameId=requestAnimationFrame(gameLoop);}
       return;
     }
-
-    if (gameState === "gameover") {
-      if (isMultiplayer) {
-        showMenu();
-      } else {
-        startGamePlay();
-      }
-      return;
-    }
-
-    // Pause (single player only)
-    if ((e.key === "p" || e.key === "P") && !isMultiplayer) {
-      if (gameState === "playing") {
-        gameState = "paused";
-        showOverlay("PAUSED", "Press P to resume");
-      } else if (gameState === "paused") {
-        gameState = "playing";
-        hideOverlay();
-        lastTime = performance.now();
-        dropTimer = 0;
-        animFrameId = requestAnimationFrame(gameLoop);
-      }
-      return;
-    }
-
-    if (gameState !== "playing") return;
-
-    switch (e.key) {
-      case "ArrowLeft": moveLeft(); break;
-      case "ArrowRight": moveRight(); break;
-      case "ArrowDown":
-        if (moveDown()) { score += 1; updateUI(); }
-        dropTimer = 0;
-        break;
-      case "ArrowUp": rotate(); break;
-      case " ": hardDrop(); break;
-      case "q": case "Q": holdPiece(); break;
+    if(gameState!=="playing")return;
+    switch(e.key){
+      case"ArrowLeft":moveLeft();break;case"ArrowRight":moveRight();break;
+      case"ArrowDown":if(moveDown()){score+=1;updateUI();}dropTimer=0;break;
+      case"ArrowUp":rotate();break;case" ":hardDrop();break;
+      case"q":case"Q":holdPiece();break;
     }
     drawBoard();
   });
 
   // ══════════════════════════════════════════
+  // Touch Controls
+  // ══════════════════════════════════════════
+  function touchAction(action) {
+    if (gameState === "idle") { startGamePlay(); return; }
+    if (gameState === "gameover") { if(isMultiplayer) showMenu(); else startGamePlay(); return; }
+    if (gameState !== "playing") return;
+
+    switch(action) {
+      case "left": moveLeft(); break;
+      case "right": moveRight(); break;
+      case "down": if(moveDown()){score+=1;updateUI();} dropTimer=0; break;
+      case "rotate": rotate(); break;
+      case "drop": hardDrop(); break;
+      case "hold": holdPiece(); break;
+    }
+    drawBoard();
+  }
+
+  // Auto-repeat for left/right/down
+  var repeatTimer = null;
+  var repeatInterval = null;
+
+  function startRepeat(action) {
+    touchAction(action);
+    if (repeatTimer) clearTimeout(repeatTimer);
+    if (repeatInterval) clearInterval(repeatInterval);
+    repeatTimer = setTimeout(function() {
+      repeatInterval = setInterval(function() {
+        touchAction(action);
+      }, 70);
+    }, 180);
+  }
+
+  function stopRepeat() {
+    if (repeatTimer) { clearTimeout(repeatTimer); repeatTimer = null; }
+    if (repeatInterval) { clearInterval(repeatInterval); repeatInterval = null; }
+  }
+
+  // Bind touch buttons
+  var touchMap = {
+    "t-left": "left", "t-right": "right", "t-down": "down",
+    "t-rotate": "rotate", "t-drop": "drop", "t-hold": "hold"
+  };
+
+  var repeatActions = { "left": true, "right": true, "down": true };
+
+  Object.keys(touchMap).forEach(function(id) {
+    var el = document.getElementById(id);
+    var action = touchMap[id];
+
+    el.addEventListener("touchstart", function(e) {
+      e.preventDefault();
+      el.classList.add("pressed");
+      if (repeatActions[action]) startRepeat(action);
+      else touchAction(action);
+    }, { passive: false });
+
+    el.addEventListener("touchend", function(e) {
+      e.preventDefault();
+      el.classList.remove("pressed");
+      if (repeatActions[action]) stopRepeat();
+    }, { passive: false });
+
+    el.addEventListener("touchcancel", function() {
+      el.classList.remove("pressed");
+      if (repeatActions[action]) stopRepeat();
+    });
+
+    // Mouse fallback for testing
+    el.addEventListener("mousedown", function(e) {
+      e.preventDefault();
+      el.classList.add("pressed");
+      if (repeatActions[action]) startRepeat(action);
+      else touchAction(action);
+    });
+    el.addEventListener("mouseup", function() {
+      el.classList.remove("pressed");
+      if (repeatActions[action]) stopRepeat();
+    });
+    el.addEventListener("mouseleave", function() {
+      el.classList.remove("pressed");
+      if (repeatActions[action]) stopRepeat();
+    });
+  });
+
+  // Mobile pause button
+  mPauseBtn.addEventListener("click", function() {
+    if (isMultiplayer) return;
+    if (gameState === "playing") {
+      gameState = "paused";
+      showOverlay("PAUSED", "Tap pause to resume");
+    } else if (gameState === "paused") {
+      gameState = "playing"; hideOverlay();
+      lastTime = performance.now(); dropTimer = 0;
+      animFrameId = requestAnimationFrame(gameLoop);
+    }
+  });
+
+  // Tap overlay to dismiss (mobile)
+  overlay.addEventListener("click", function() {
+    if (!isMobile) return;
+    if (gameState === "idle") { startGamePlay(); return; }
+    if (gameState === "gameover") { if(isMultiplayer) showMenu(); else startGamePlay(); }
+  });
+
+  // Prevent all unwanted touch behaviors on game screen
+  document.addEventListener("touchmove", function(e) {
+    if (gameScreen.style.display !== "none") e.preventDefault();
+  }, { passive: false });
+
+  // ══════════════════════════════════════════
+  // Swipe Gesture on Board (optional additional control)
+  // ══════════════════════════════════════════
+  var swipeStartX = 0, swipeStartY = 0, swipeStartTime = 0;
+  var swipeThreshold = 30;
+
+  boardCanvas.addEventListener("touchstart", function(e) {
+    if (gameState !== "playing") return;
+    var t = e.touches[0];
+    swipeStartX = t.clientX; swipeStartY = t.clientY;
+    swipeStartTime = Date.now();
+    e.preventDefault();
+  }, { passive: false });
+
+  boardCanvas.addEventListener("touchend", function(e) {
+    if (gameState !== "playing") return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - swipeStartX;
+    var dy = t.clientY - swipeStartY;
+    var dt = Date.now() - swipeStartTime;
+    e.preventDefault();
+
+    if (dt > 500) return; // too slow
+
+    if (Math.abs(dx) < swipeThreshold && Math.abs(dy) < swipeThreshold) {
+      // Tap on board = rotate
+      rotate(); drawBoard(); return;
+    }
+
+    if (Math.abs(dy) > Math.abs(dx)) {
+      if (dy > swipeThreshold) { hardDrop(); } // swipe down = hard drop
+    }
+  }, { passive: false });
+
+  // ══════════════════════════════════════════
   // Init
   // ══════════════════════════════════════════
+  resizeGame();
   showMenu();
 
 })();
