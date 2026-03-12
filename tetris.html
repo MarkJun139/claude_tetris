@@ -229,6 +229,16 @@
     pointer-events: none; z-index: 20;
     text-shadow: 0 0 20px rgba(255,68,68,0.8);
   }
+
+  /* ── Line Clear Text ── */
+  .line-clear-text {
+    position: absolute; top: 40%; left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    font-size: 28px; font-weight: bold;
+    opacity: 0; pointer-events: none; z-index: 19;
+    text-shadow: 0 0 16px currentColor;
+    transition: none;
+  }
 </style>
 </head>
 <body>
@@ -271,10 +281,15 @@
           <p id="overlay-msg"></p>
         </div>
         <div class="attack-warning" id="attack-warning">INCOMING!</div>
+        <div class="line-clear-text" id="line-clear-text"></div>
       </div>
     </div>
 
     <div class="side-panel">
+      <div class="panel-box">
+        <h3>Hold (Q)</h3>
+        <canvas id="hold-piece" width="100" height="100"></canvas>
+      </div>
       <div class="panel-box">
         <h3>Next</h3>
         <canvas id="next-piece" width="100" height="100"></canvas>
@@ -297,6 +312,7 @@
         <div>&#8593; : Rotate</div>
         <div>&#8595; : Soft Drop</div>
         <div>Space : Hard Drop</div>
+        <div>Q : Hold</div>
         <div>P : Pause</div>
       </div>
     </div>
@@ -391,6 +407,9 @@
   var overlayTitle  = document.getElementById("overlay-title");
   var overlayMsg    = document.getElementById("overlay-msg");
   var attackWarning = document.getElementById("attack-warning");
+  var lineClearText  = document.getElementById("line-clear-text");
+  var holdCanvas     = document.getElementById("hold-piece");
+  var holdCtx        = holdCanvas.getContext("2d");
 
   var oppArea       = document.getElementById("opponent-area");
   var oppCanvas     = document.getElementById("opp-board");
@@ -414,6 +433,8 @@
   var bag = [];
   var isMultiplayer = false;
   var pendingGarbage = 0;
+  var holdType = null;
+  var holdUsed = false; // prevent infinite hold swapping per piece
 
   // Explosion effects
   var explosionParticles = [];
@@ -483,12 +504,34 @@
 
   function clearLines() {
     var cleared = 0;
+    var clearedRows = [];
     for (var r = ROWS - 1; r >= 0; r--) {
       var full = true;
       for (var c = 0; c < COLS; c++) {
         if (board[r][c] === EMPTY) { full = false; break; }
       }
       if (full) {
+        clearedRows.push(r);
+        // Collect block colors for particles before removing
+        for (var pc = 0; pc < COLS; pc++) {
+          var pColor = COLORS[board[r][pc]] || "#7db4ff";
+          if (board[r][pc] === "G") pColor = "#3a3a5c";
+          // Horizontal sweep sparks
+          for (var sp = 0; sp < 3; sp++) {
+            explosionParticles.push({
+              type: "spark",
+              x: pc * BLOCK + BLOCK / 2,
+              y: r * BLOCK + BLOCK / 2,
+              vx: (Math.random() - 0.5) * 8,
+              vy: (Math.random() - 0.5) * 4 - 1,
+              size: 2 + Math.random() * 3,
+              color: pColor,
+              life: 0.5 + Math.random() * 0.5,
+              decay: 0.015 + Math.random() * 0.01,
+              gravity: 0.1
+            });
+          }
+        }
         board.splice(r, 1);
         var emptyRow = [];
         for (var c2 = 0; c2 < COLS; c2++) emptyRow.push(EMPTY);
@@ -497,7 +540,125 @@
         r++;
       }
     }
+
+    // Trigger line clear effects based on count
+    if (cleared > 0) {
+      triggerLineClearEffect(cleared, clearedRows);
+    }
+
     return cleared;
+  }
+
+  function triggerLineClearEffect(count, rows) {
+    // Screen shake scales with lines cleared
+    if (count === 1) {
+      screenShake = 4;
+      explosionFlash = 0.15;
+      showLineClearText("SINGLE", "#7db4ff");
+    } else if (count === 2) {
+      screenShake = 8;
+      explosionFlash = 0.3;
+      showLineClearText("DOUBLE!", "#34d399");
+      // Horizontal shockwave for each cleared row
+      for (var i = 0; i < rows.length; i++) {
+        explosionParticles.push({
+          type: "ring", x: COLS * BLOCK / 2, y: rows[i] * BLOCK + BLOCK / 2,
+          radius: 20, expandSpeed: 5, width: 3,
+          color: "#34d399", life: 0.8, decay: 0.03
+        });
+      }
+    } else if (count === 3) {
+      screenShake = 14;
+      explosionFlash = 0.5;
+      showLineClearText("TRIPLE!!", "#a78bfa");
+      // Multiple rings + extra sparks
+      for (var j = 0; j < rows.length; j++) {
+        for (var rr = 0; rr < 2; rr++) {
+          explosionParticles.push({
+            type: "ring", x: COLS * BLOCK / 2, y: rows[j] * BLOCK + BLOCK / 2,
+            radius: 10 + rr * 15, expandSpeed: 4 + rr * 2, width: 4 - rr,
+            color: rr === 0 ? "#ffffff" : "#a78bfa", life: 0.9, decay: 0.025
+          });
+        }
+      }
+      // Extra spark burst from center
+      for (var es = 0; es < 25; es++) {
+        var ang = Math.random() * Math.PI * 2;
+        var vel = 3 + Math.random() * 5;
+        explosionParticles.push({
+          type: "spark", x: COLS * BLOCK / 2, y: rows[0] * BLOCK + BLOCK / 2,
+          vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel,
+          size: 2 + Math.random() * 4,
+          color: ["#ffffff","#a78bfa","#7db4ff"][Math.floor(Math.random()*3)],
+          life: 0.7 + Math.random() * 0.3, decay: 0.015, gravity: 0.06
+        });
+      }
+    } else if (count >= 4) {
+      screenShake = 20;
+      explosionFlash = 0.8;
+      showLineClearText("TETRIS!!!", "#ffdd44");
+      // Massive explosion from center of cleared area
+      var centerY = 0;
+      for (var k = 0; k < rows.length; k++) centerY += rows[k];
+      centerY = (centerY / rows.length) * BLOCK + BLOCK / 2;
+      // Big rings
+      for (var br = 0; br < 4; br++) {
+        explosionParticles.push({
+          type: "ring", x: COLS * BLOCK / 2, y: centerY,
+          radius: 5 + br * 12, expandSpeed: 3 + br * 2, width: 5 - br,
+          color: br < 2 ? "#ffffff" : (br === 2 ? "#ffdd44" : "#ff8800"),
+          life: 1.0, decay: 0.02
+        });
+      }
+      // Massive spark shower
+      for (var ms = 0; ms < 60; ms++) {
+        var a2 = Math.random() * Math.PI * 2;
+        var v2 = 2 + Math.random() * 8;
+        var scol = ["#ffffff","#ffdd44","#ff8800","#ffaa00","#7db4ff"];
+        explosionParticles.push({
+          type: "spark", x: COLS * BLOCK / 2, y: centerY,
+          vx: Math.cos(a2) * v2, vy: Math.sin(a2) * v2 - 2,
+          size: 2 + Math.random() * 5,
+          color: scol[Math.floor(Math.random()*scol.length)],
+          life: 0.6 + Math.random() * 0.4, decay: 0.01 + Math.random() * 0.005,
+          gravity: 0.07
+        });
+      }
+      // Flying debris blocks
+      for (var db = 0; db < 15; db++) {
+        explosionParticles.push({
+          type: "debris",
+          x: Math.random() * COLS * BLOCK,
+          y: centerY,
+          vx: (Math.random() - 0.5) * 10,
+          vy: -3 - Math.random() * 6,
+          size: 5 + Math.random() * 8,
+          color: scol[Math.floor(Math.random()*scol.length)],
+          life: 1.0, decay: 0.012, gravity: 0.18
+        });
+      }
+    }
+  }
+
+  var lineClearTimeout = null;
+  function showLineClearText(text, color) {
+    if (lineClearTimeout) clearTimeout(lineClearTimeout);
+    lineClearText.textContent = text;
+    lineClearText.style.color = color;
+    lineClearText.style.opacity = "1";
+    lineClearText.style.transition = "none";
+    lineClearText.style.transform = "translate(-50%, -50%) scale(1.3)";
+    // Animate
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        lineClearText.style.transition = "all 0.6s ease-out";
+        lineClearText.style.transform = "translate(-50%, -50%) scale(1)";
+        lineClearText.style.opacity = "0";
+      });
+    });
+    lineClearTimeout = setTimeout(function() {
+      lineClearText.style.opacity = "0";
+    }, 700);
   }
 
   function nextFromBag() {
@@ -859,6 +1020,65 @@
       current.y--; current.rotation = nr;
     }
   }
+  function holdPiece() {
+    if (!current) return;
+    if (holdUsed) return; // already held once this turn
+    if (current.type === "BOMB") return; // can't hold bombs
+
+    holdUsed = true;
+    var prevHold = holdType;
+    holdType = current.type;
+
+    if (prevHold) {
+      current = spawnPiece(prevHold);
+    } else {
+      current = spawnPiece(nextType || pickNextType());
+      nextType = pickNextType();
+      drawNext();
+    }
+
+    drawHold();
+
+    if (!isValid(current.type, current.rotation, current.x, current.y)) {
+      triggerGameOver();
+    }
+  }
+
+  function drawHold() {
+    holdCtx.fillStyle = "#0d1333";
+    holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
+    if (!holdType) return;
+
+    if (holdType === "BOMB") {
+      // shouldn't happen but safety
+      return;
+    }
+
+    var shape = SHAPES[holdType][0];
+    var minX = 99, maxX = -1, minY = 99, maxY = -1;
+    for (var i = 0; i < shape.length; i++) {
+      if (shape[i][0] < minX) minX = shape[i][0];
+      if (shape[i][0] > maxX) maxX = shape[i][0];
+      if (shape[i][1] < minY) minY = shape[i][1];
+      if (shape[i][1] > maxY) maxY = shape[i][1];
+    }
+    var w = maxX - minX + 1, h = maxY - minY + 1;
+    var sz = 22;
+    var ox = (holdCanvas.width - w * sz) / 2;
+    var oy = (holdCanvas.height - h * sz) / 2;
+
+    var dimAlpha = holdUsed ? 0.4 : 1.0;
+    holdCtx.globalAlpha = dimAlpha;
+    for (var j = 0; j < shape.length; j++) {
+      holdCtx.fillStyle = COLORS[holdType];
+      holdCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, sz - 2, sz - 2);
+      holdCtx.fillStyle = "rgba(255,255,255,0.15)";
+      holdCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, sz - 2, 3);
+      holdCtx.fillRect(ox + (shape[j][0] - minX) * sz + 1, oy + (shape[j][1] - minY) * sz + 1, 3, sz - 2);
+    }
+    holdCtx.globalAlpha = 1.0;
+  }
+
   function hardDrop() {
     if (!current) return;
     var rows = 0;
@@ -992,7 +1212,9 @@
   function spawnNext() {
     current = spawnPiece(nextType || pickNextType());
     nextType = pickNextType();
+    holdUsed = false;
     drawNext();
+    drawHold();
 
     if (!isValid(current.type, current.rotation, current.x, current.y)) {
       triggerGameOver();
@@ -1210,6 +1432,8 @@
     explosionFlash = 0;
     screenShake = 0;
     pendingGarbage = 0;
+    holdType = null;
+    holdUsed = false;
     oppBoard = createBoard();
     oppScore = 0;
     oppLines = 0;
@@ -1238,8 +1462,11 @@
     oppArea.classList.remove("active");
     showOverlay("TETRIS", "Press any key to start");
     gameState = "idle";
+    holdType = null;
+    holdUsed = false;
     drawBoard();
     drawNext();
+    drawHold();
     if (animFrameId) cancelAnimationFrame(animFrameId);
   }
 
@@ -1414,7 +1641,7 @@
     // Don't capture input when in menu/lobby
     if (menuScreen.style.display !== "none" || lobbyScreen.style.display !== "none") return;
 
-    var gameKeys = ["ArrowLeft","ArrowRight","ArrowDown","ArrowUp"," ","Space"];
+    var gameKeys = ["ArrowLeft","ArrowRight","ArrowDown","ArrowUp"," ","Space","q","Q"];
     if (gameKeys.indexOf(e.key) !== -1 || gameKeys.indexOf(e.code) !== -1) {
       e.preventDefault();
     }
@@ -1459,6 +1686,7 @@
         break;
       case "ArrowUp": rotate(); break;
       case " ": hardDrop(); break;
+      case "q": case "Q": holdPiece(); break;
     }
     drawBoard();
   });
