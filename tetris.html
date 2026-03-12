@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0e27;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: #c8d6f0;
+    user-select: none;
+  }
+
+  .game-wrapper {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  .board-container {
+    border: 3px solid #1e3a6e;
+    border-radius: 8px;
+    background: #0d1333;
+    padding: 4px;
+    box-shadow: 0 0 30px rgba(30, 80, 180, 0.3);
+  }
+
+  canvas#board {
+    display: block;
+    border-radius: 4px;
+  }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 140px;
+  }
+
+  .panel-box {
+    background: #0d1333;
+    border: 2px solid #1e3a6e;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .panel-box h3 {
+    font-size: 13px;
+    color: #4a7bbf;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .panel-box .value {
+    font-size: 22px;
+    font-weight: bold;
+    color: #7db4ff;
+  }
+
+  canvas#next-piece {
+    display: block;
+    margin: 0 auto;
+  }
+
+  .controls {
+    font-size: 11px;
+    line-height: 1.8;
+    color: #4a6a9e;
+  }
+
+  .overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    background: rgba(10, 14, 39, 0.85);
+    border-radius: 4px;
+    z-index: 10;
+  }
+
+  .overlay h2 {
+    font-size: 28px;
+    color: #7db4ff;
+    margin-bottom: 8px;
+  }
+
+  .overlay p {
+    font-size: 14px;
+    color: #4a7bbf;
+  }
+
+  .board-wrapper {
+    position: relative;
+  }
+</style>
+</head>
+<body>
+
+<div class="game-wrapper">
+  <div class="board-container">
+    <div class="board-wrapper">
+      <canvas id="board" width="300" height="600"></canvas>
+      <div class="overlay" id="overlay">
+        <h2 id="overlay-title">TETRIS</h2>
+        <p id="overlay-msg">Press any key to start</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel-box">
+      <h3>Next</h3>
+      <canvas id="next-piece" width="100" height="100"></canvas>
+    </div>
+    <div class="panel-box">
+      <h3>Score</h3>
+      <div class="value" id="score">0</div>
+    </div>
+    <div class="panel-box">
+      <h3>Level</h3>
+      <div class="value" id="level">1</div>
+    </div>
+    <div class="panel-box">
+      <h3>Lines</h3>
+      <div class="value" id="lines">0</div>
+    </div>
+    <div class="panel-box controls">
+      <h3>Controls</h3>
+      <div>← → : Move</div>
+      <div>↑ : Rotate</div>
+      <div>↓ : Soft Drop</div>
+      <div>Space : Hard Drop</div>
+      <div>P : Pause</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Constants ──
+  var COLS = 10;
+  var ROWS = 20;
+  var BLOCK = 30;
+  var EMPTY = 0;
+
+  // Tetromino shapes (4 rotations each)
+  var SHAPES = {
+    I: [
+      [[0,0],[1,0],[2,0],[3,0]],
+      [[0,0],[0,1],[0,2],[0,3]],
+      [[0,0],[1,0],[2,0],[3,0]],
+      [[0,0],[0,1],[0,2],[0,3]]
+    ],
+    O: [
+      [[0,0],[1,0],[0,1],[1,1]],
+      [[0,0],[1,0],[0,1],[1,1]],
+      [[0,0],[1,0],[0,1],[1,1]],
+      [[0,0],[1,0],[0,1],[1,1]]
+    ],
+    T: [
+      [[0,0],[1,0],[2,0],[1,1]],
+      [[1,0],[0,1],[1,1],[1,2]],
+      [[1,0],[0,1],[1,1],[2,1]],
+      [[0,0],[0,1],[1,1],[0,2]]
+    ],
+    S: [
+      [[1,0],[2,0],[0,1],[1,1]],
+      [[0,0],[0,1],[1,1],[1,2]],
+      [[1,0],[2,0],[0,1],[1,1]],
+      [[0,0],[0,1],[1,1],[1,2]]
+    ],
+    Z: [
+      [[0,0],[1,0],[1,1],[2,1]],
+      [[1,0],[0,1],[1,1],[0,2]],
+      [[0,0],[1,0],[1,1],[2,1]],
+      [[1,0],[0,1],[1,1],[0,2]]
+    ],
+    J: [
+      [[0,0],[0,1],[1,1],[2,1]],
+      [[0,0],[1,0],[0,1],[0,2]],
+      [[0,0],[1,0],[2,0],[2,1]],
+      [[1,0],[1,1],[0,2],[1,2]]
+    ],
+    L: [
+      [[2,0],[0,1],[1,1],[2,1]],
+      [[0,0],[0,1],[0,2],[1,2]],
+      [[0,0],[1,0],[2,0],[0,1]],
+      [[0,0],[1,0],[1,1],[1,2]]
+    ],
+    BOMB: [
+      [[0,0]],
+      [[0,0]],
+      [[0,0]],
+      [[0,0]]
+    ]
+  };
+
+  // Blue-themed colors per piece
+  var COLORS = {
+    I: "#00d4ff",
+    O: "#7db4ff",
+    T: "#a78bfa",
+    S: "#34d399",
+    Z: "#f87171",
+    J: "#3b82f6",
+    L: "#f59e0b",
+    BOMB: "#ff4500"
+  };
+
+  var PIECE_NAMES = ["I", "O", "T", "S", "Z", "J", "L"];
+  var BOMB_CHANCE = 0.18; // 18% chance per spawn
+
+  // Score table: lines cleared -> points (safe for any count)
+  var LINE_SCORES = [0, 100, 300, 500, 800];
+  function getLineScore(count) {
+    if (count <= 0) return 0;
+    if (count < LINE_SCORES.length) return LINE_SCORES[count];
+    return LINE_SCORES[4] + (count - 4) * 200;
+  }
+
+  // Speed: ms per drop (per level)
+  function getSpeed(level) {
+    var base = 800;
+    var speed = base - (level - 1) * 70;
+    return speed < 80 ? 80 : speed;
+  }
+
+  // ── DOM refs ──
+  var boardCanvas = document.getElementById("board");
+  var boardCtx = boardCanvas.getContext("2d");
+  var nextCanvas = document.getElementById("next-piece");
+  var nextCtx = nextCanvas.getContext("2d");
+  var scoreEl = document.getElementById("score");
+  var levelEl = document.getElementById("level");
+  var linesEl = document.getElementById("lines");
+  var overlay = document.getElementById("overlay");
+  var overlayTitle = document.getElementById("overlay-title");
+  var overlayMsg = document.getElementById("overlay-msg");
+
+  // ── Game state ──
+  var board = [];
+  var current = null;   // { type, rotation, x, y }
+  var nextType = null;
+  var score = 0;
+  var level = 1;
+  var totalLines = 0;
+  var dropTimer = 0;
+  var lastTime = 0;
+  var gameState = "idle"; // idle | playing | paused | gameover
+  var animFrameId = null;
+  var bag = [];
+
+  // ── Explosion effect state ──
+  var explosionParticles = [];
+  var explosionFlash = 0; // flash intensity timer
+  var screenShake = 0;    // shake timer
+  var shakeOffsetX = 0;
+  var shakeOffsetY = 0;
+
+  // ── Board helpers ──
+  function createBoard() {
+    var b = [];
+    for (var r = 0; r < ROWS; r++) {
+      b[r] = [];
+      for (var c = 0; c < COLS; c++) {
+        b[r][c] = EMPTY;
+      }
+    }
+    return b;
+  }
+
+  function getCells(type, rotation, ox, oy) {
+    var shape = SHAPES[type];
+    if (!shape) return [];
+    var rot = shape[rotation % shape.length];
+    var cells = [];
+    for (var i = 0; i < rot.length; i++) {
+      cells.push({ x: ox + rot[i][0], y: oy + rot[i][1] });
+    }
+    return cells;
+  }
+
+  function isValid(type, rotation, ox, oy) {
+    var cells = getCells(type, rotation, ox, oy);
+    for (var i = 0; i < cells.length; i++) {
+      var cx = cells[i].x;
+      var cy = cells[i].y;
+      if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) return false;
+      if (board[cy][cx] !== EMPTY) return false;
+    }
+    return true;
+  }
+
+  function lockPiece() {
+    if (!current) return;
+    var cells = getCells(current.type, current.rotation, current.x, current.y);
+    for (var i = 0; i < cells.length; i++) {
+      var cx = cells[i].x;
+      var cy = cells[i].y;
+      if (cy >= 0 && cy < ROWS && cx >= 0 && cx < COLS) {
+        board[cy][cx] = current.type;
+      }
+    }
+  }
+
+  function clearLines() {
+    var cleared = 0;
+    for (var r = ROWS - 1; r >= 0; r--) {
+      var full = true;
+      for (var c = 0; c < COLS; c++) {
+        if (board[r][c] === EMPTY) { full = false; break; }
+      }
+      if (full) {
+        board.splice(r, 1);
+        var emptyRow = [];
+        for (var c2 = 0; c2 < COLS; c2++) emptyRow.push(EMPTY);
+        board.unshift(emptyRow);
+        cleared++;
+        r++; // recheck this row index
+      }
+    }
+    return cleared;
+  }
+
+  // 7-bag randomizer
+  function nextFromBag() {
+    if (bag.length === 0) {
+      bag = PIECE_NAMES.slice();
+      // Fisher-Yates shuffle
+      for (var i = bag.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = bag[i];
+        bag[i] = bag[j];
+        bag[j] = tmp;
+      }
+    }
+    return bag.pop();
+  }
+
+  function spawnPiece(type) {
+    var piece = { type: type, rotation: 0, x: 3, y: 0 };
+    if (type === "I") piece.x = 3;
+    else if (type === "O") piece.x = 4;
+    else if (type === "BOMB") piece.x = 4;
+    return piece;
+  }
+
+  function getGhostY() {
+    if (!current) return 0;
+    var gy = current.y;
+    while (isValid(current.type, current.rotation, current.x, gy + 1)) {
+      gy++;
+    }
+    return gy;
+  }
+
+  // ── Drawing ──
+  function drawBlock(ctx, x, y, color, size) {
+    size = size || BLOCK;
+    ctx.fillStyle = color;
+    ctx.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+    // Highlight
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+    ctx.fillRect(x * size + 1, y * size + 1, 4, size - 2);
+  }
+
+  function drawBomb(ctx, x, y, size, time) {
+    size = size || BLOCK;
+    var cx = x * size + size / 2;
+    var cy = y * size + size / 2;
+    var r = (size - 4) / 2;
+
+    // Pulsing glow
+    var pulse = 0.5 + 0.5 * Math.sin((time || Date.now()) * 0.006);
+
+    // Outer glow
+    var glow = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.4);
+    glow.addColorStop(0, "rgba(255, 100, 0, " + (0.6 + pulse * 0.4) + ")");
+    glow.addColorStop(0.6, "rgba(255, 30, 0, 0.3)");
+    glow.addColorStop(1, "rgba(255, 0, 0, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x * size - 4, y * size - 4, size + 8, size + 8);
+
+    // Bomb body (circle)
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fill();
+    ctx.strokeStyle = "#ff4500";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner highlight
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.25, cy - r * 0.25, r * 0.35, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 120, 50, " + (0.3 + pulse * 0.3) + ")";
+    ctx.fill();
+
+    // Fuse spark
+    var sparkAngle = -Math.PI * 0.3;
+    var fuseX = cx + Math.cos(sparkAngle) * r;
+    var fuseY = cy + Math.sin(sparkAngle) * r;
+    ctx.beginPath();
+    ctx.arc(fuseX, fuseY, 3 + pulse * 2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 100, " + (0.7 + pulse * 0.3) + ")";
+    ctx.fill();
+
+    // Star/explosion icon in center
+    ctx.fillStyle = "#ff6030";
+    ctx.font = "bold " + Math.floor(size * 0.45) + "px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("*", cx, cy + 1);
+  }
+
+  function drawBoard() {
+    var now = Date.now();
+
+    // Screen shake offset
+    if (screenShake > 0) {
+      shakeOffsetX = (Math.random() - 0.5) * screenShake * 0.8;
+      shakeOffsetY = (Math.random() - 0.5) * screenShake * 0.8;
+    } else {
+      shakeOffsetX = 0;
+      shakeOffsetY = 0;
+    }
+
+    boardCtx.save();
+    boardCtx.translate(shakeOffsetX, shakeOffsetY);
+
+    boardCtx.fillStyle = "#0a0f2e";
+    boardCtx.fillRect(-4, -4, boardCanvas.width + 8, boardCanvas.height + 8);
+
+    // Explosion flash overlay
+    if (explosionFlash > 0) {
+      boardCtx.fillStyle = "rgba(255, 150, 50, " + (explosionFlash * 0.4) + ")";
+      boardCtx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+    }
+
+    // Grid lines
+    boardCtx.strokeStyle = "rgba(30, 58, 110, 0.3)";
+    boardCtx.lineWidth = 0.5;
+    for (var c = 1; c < COLS; c++) {
+      boardCtx.beginPath();
+      boardCtx.moveTo(c * BLOCK, 0);
+      boardCtx.lineTo(c * BLOCK, ROWS * BLOCK);
+      boardCtx.stroke();
+    }
+    for (var r = 1; r < ROWS; r++) {
+      boardCtx.beginPath();
+      boardCtx.moveTo(0, r * BLOCK);
+      boardCtx.lineTo(COLS * BLOCK, r * BLOCK);
+      boardCtx.stroke();
+    }
+
+    // Locked blocks
+    for (var r2 = 0; r2 < ROWS; r2++) {
+      for (var c2 = 0; c2 < COLS; c2++) {
+        if (board[r2][c2] !== EMPTY) {
+          if (board[r2][c2] === "BOMB") {
+            drawBomb(boardCtx, c2, r2, BLOCK, now);
+          } else {
+            drawBlock(boardCtx, c2, r2, COLORS[board[r2][c2]]);
+          }
+        }
+      }
+    }
+
+    // Draw explosion particles
+    for (var p = 0; p < explosionParticles.length; p++) {
+      var pt = explosionParticles[p];
+      var alpha = pt.life;
+      if (alpha <= 0) continue;
+
+      boardCtx.globalAlpha = alpha;
+
+      if (pt.type === "ring") {
+        // Expanding ring
+        boardCtx.beginPath();
+        boardCtx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+        boardCtx.strokeStyle = pt.color;
+        boardCtx.lineWidth = pt.width * alpha;
+        boardCtx.stroke();
+      } else if (pt.type === "debris") {
+        // Flying block debris
+        boardCtx.fillStyle = pt.color;
+        boardCtx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
+      } else {
+        // Spark particle
+        boardCtx.beginPath();
+        boardCtx.arc(pt.x, pt.y, pt.size * alpha, 0, Math.PI * 2);
+        boardCtx.fillStyle = pt.color;
+        boardCtx.fill();
+      }
+
+      boardCtx.globalAlpha = 1;
+    }
+
+    if (!current) { boardCtx.restore(); return; }
+
+    // Ghost piece
+    var ghostY = getGhostY();
+    if (ghostY !== current.y) {
+      var ghostCells = getCells(current.type, current.rotation, current.x, ghostY);
+      for (var g = 0; g < ghostCells.length; g++) {
+        if (current.type === "BOMB") {
+          // Bomb ghost: faint red circle
+          var gcx = ghostCells[g].x * BLOCK + BLOCK / 2;
+          var gcy = ghostCells[g].y * BLOCK + BLOCK / 2;
+          boardCtx.beginPath();
+          boardCtx.arc(gcx, gcy, (BLOCK - 4) / 2, 0, Math.PI * 2);
+          boardCtx.strokeStyle = "rgba(255, 69, 0, 0.35)";
+          boardCtx.lineWidth = 2;
+          boardCtx.stroke();
+          // 5x3 blast zone preview
+          boardCtx.strokeStyle = "rgba(255, 69, 0, 0.12)";
+          boardCtx.lineWidth = 1;
+          var bx = ghostCells[g].x - 2;
+          var by = ghostCells[g].y - 1;
+          boardCtx.strokeRect(bx * BLOCK, by * BLOCK, 5 * BLOCK, 3 * BLOCK);
+        } else {
+          boardCtx.fillStyle = "rgba(125, 180, 255, 0.15)";
+          boardCtx.fillRect(
+            ghostCells[g].x * BLOCK + 1,
+            ghostCells[g].y * BLOCK + 1,
+            BLOCK - 2, BLOCK - 2
+          );
+          boardCtx.strokeStyle = "rgba(125, 180, 255, 0.4)";
+          boardCtx.lineWidth = 1;
+          boardCtx.strokeRect(
+            ghostCells[g].x * BLOCK + 1,
+            ghostCells[g].y * BLOCK + 1,
+            BLOCK - 2, BLOCK - 2
+          );
+        }
+      }
+    }
+
+    // Current piece
+    if (current.type === "BOMB") {
+      drawBomb(boardCtx, current.x, current.y, BLOCK, now);
+    } else {
+      var cells = getCells(current.type, current.rotation, current.x, current.y);
+      for (var i = 0; i < cells.length; i++) {
+        drawBlock(boardCtx, cells[i].x, cells[i].y, COLORS[current.type]);
+      }
+    }
+
+    boardCtx.restore();
+  }
+
+  function drawNext() {
+    nextCtx.fillStyle = "#0d1333";
+    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+    if (!nextType) return;
+
+    // Special bomb rendering in next preview
+    if (nextType === "BOMB") {
+      var bcx = nextCanvas.width / 2;
+      var bcy = nextCanvas.height / 2;
+      var br = 16;
+      var pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+      // Glow
+      var glow = nextCtx.createRadialGradient(bcx, bcy, br * 0.3, bcx, bcy, br * 1.5);
+      glow.addColorStop(0, "rgba(255, 100, 0, " + (0.5 + pulse * 0.3) + ")");
+      glow.addColorStop(1, "rgba(255, 0, 0, 0)");
+      nextCtx.fillStyle = glow;
+      nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+      // Body
+      nextCtx.beginPath();
+      nextCtx.arc(bcx, bcy, br, 0, Math.PI * 2);
+      nextCtx.fillStyle = "#1a1a2e";
+      nextCtx.fill();
+      nextCtx.strokeStyle = "#ff4500";
+      nextCtx.lineWidth = 2;
+      nextCtx.stroke();
+      // Star
+      nextCtx.fillStyle = "#ff6030";
+      nextCtx.font = "bold 16px sans-serif";
+      nextCtx.textAlign = "center";
+      nextCtx.textBaseline = "middle";
+      nextCtx.fillText("*", bcx, bcy + 1);
+      return;
+    }
+
+    var shape = SHAPES[nextType][0];
+    var minX = 99, maxX = -1, minY = 99, maxY = -1;
+    for (var i = 0; i < shape.length; i++) {
+      if (shape[i][0] < minX) minX = shape[i][0];
+      if (shape[i][0] > maxX) maxX = shape[i][0];
+      if (shape[i][1] < minY) minY = shape[i][1];
+      if (shape[i][1] > maxY) maxY = shape[i][1];
+    }
+    var w = maxX - minX + 1;
+    var h = maxY - minY + 1;
+    var size = 22;
+    var offsetX = (nextCanvas.width - w * size) / 2;
+    var offsetY = (nextCanvas.height - h * size) / 2;
+
+    for (var j = 0; j < shape.length; j++) {
+      var px = (shape[j][0] - minX);
+      var py = (shape[j][1] - minY);
+      nextCtx.fillStyle = COLORS[nextType];
+      nextCtx.fillRect(offsetX + px * size + 1, offsetY + py * size + 1, size - 2, size - 2);
+      nextCtx.fillStyle = "rgba(255,255,255,0.15)";
+      nextCtx.fillRect(offsetX + px * size + 1, offsetY + py * size + 1, size - 2, 3);
+      nextCtx.fillRect(offsetX + px * size + 1, offsetY + py * size + 1, 3, size - 2);
+    }
+  }
+
+  function updateUI() {
+    scoreEl.textContent = score;
+    levelEl.textContent = level;
+    linesEl.textContent = totalLines;
+  }
+
+  // ── Game logic ──
+  function moveLeft() {
+    if (!current) return;
+    if (isValid(current.type, current.rotation, current.x - 1, current.y)) {
+      current.x--;
+    }
+  }
+
+  function moveRight() {
+    if (!current) return;
+    if (isValid(current.type, current.rotation, current.x + 1, current.y)) {
+      current.x++;
+    }
+  }
+
+  function moveDown() {
+    if (!current) return false;
+    if (isValid(current.type, current.rotation, current.x, current.y + 1)) {
+      current.y++;
+      return true;
+    }
+    return false;
+  }
+
+  function rotate() {
+    if (!current) return;
+    if (current.type === "BOMB") return; // bombs don't rotate
+    var newRot = (current.rotation + 1) % 4;
+    // Try normal rotation
+    if (isValid(current.type, newRot, current.x, current.y)) {
+      current.rotation = newRot;
+      return;
+    }
+    // Wall kick: try offsets
+    var kicks = [-1, 1, -2, 2];
+    for (var i = 0; i < kicks.length; i++) {
+      if (isValid(current.type, newRot, current.x + kicks[i], current.y)) {
+        current.x += kicks[i];
+        current.rotation = newRot;
+        return;
+      }
+    }
+    // Try kicking up (for T-spins near floor)
+    if (isValid(current.type, newRot, current.x, current.y - 1)) {
+      current.y--;
+      current.rotation = newRot;
+      return;
+    }
+  }
+
+  function hardDrop() {
+    if (!current) return;
+    var rows = 0;
+    while (isValid(current.type, current.rotation, current.x, current.y + 1)) {
+      current.y++;
+      rows++;
+    }
+    score += rows * 2;
+    placePiece();
+  }
+
+  function triggerExplosion(cx, cy) {
+    var pixelCX = cx * BLOCK + BLOCK / 2;
+    var pixelCY = cy * BLOCK + BLOCK / 2;
+    var destroyedCount = 0;
+
+    // Clear 5x3 area (5 wide, 3 tall) and collect destroyed block info for debris
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -2; dx <= 2; dx++) {
+        var bx = cx + dx;
+        var by = cy + dy;
+        if (bx >= 0 && bx < COLS && by >= 0 && by < ROWS) {
+          if (board[by][bx] !== EMPTY) {
+            // Spawn debris particle for each destroyed block
+            var debrisColor = COLORS[board[by][bx]] || "#ff8844";
+            for (var d = 0; d < 3; d++) {
+              explosionParticles.push({
+                type: "debris",
+                x: bx * BLOCK + BLOCK / 2,
+                y: by * BLOCK + BLOCK / 2,
+                vx: (dx * 3 + (Math.random() - 0.5) * 6),
+                vy: (dy * 3 + (Math.random() - 0.5) * 4 - 3),
+                size: 4 + Math.random() * 6,
+                color: debrisColor,
+                life: 1.0,
+                decay: 0.015 + Math.random() * 0.01,
+                gravity: 0.15
+              });
+            }
+            destroyedCount++;
+          }
+          board[by][bx] = EMPTY;
+        }
+      }
+    }
+
+    // Expanding shockwave rings
+    for (var ring = 0; ring < 3; ring++) {
+      explosionParticles.push({
+        type: "ring",
+        x: pixelCX,
+        y: pixelCY,
+        radius: 10 + ring * 5,
+        expandSpeed: 3 + ring * 1.5,
+        width: 4 - ring,
+        color: ring === 0 ? "#ffffff" : (ring === 1 ? "#ff8844" : "#ff4400"),
+        life: 1.0,
+        decay: 0.025
+      });
+    }
+
+    // Spark shower
+    for (var s = 0; s < 40; s++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 2 + Math.random() * 6;
+      var sparkColors = ["#ffffff", "#ffdd44", "#ff8800", "#ff4400", "#ff2200"];
+      explosionParticles.push({
+        type: "spark",
+        x: pixelCX,
+        y: pixelCY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        size: 2 + Math.random() * 4,
+        color: sparkColors[Math.floor(Math.random() * sparkColors.length)],
+        life: 0.6 + Math.random() * 0.4,
+        decay: 0.012 + Math.random() * 0.008,
+        gravity: 0.08
+      });
+    }
+
+    // Flash and shake
+    explosionFlash = 1.0;
+    screenShake = 12;
+
+    // Score bonus for destroyed blocks
+    score += destroyedCount * 15 * level;
+  }
+
+  function updateParticles() {
+    for (var i = explosionParticles.length - 1; i >= 0; i--) {
+      var pt = explosionParticles[i];
+      pt.life -= pt.decay;
+
+      if (pt.type === "ring") {
+        pt.radius += pt.expandSpeed;
+      } else {
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        if (pt.gravity) pt.vy += pt.gravity;
+        // Friction
+        pt.vx *= 0.98;
+      }
+
+      if (pt.life <= 0) {
+        explosionParticles.splice(i, 1);
+      }
+    }
+
+    // Decay flash and shake
+    if (explosionFlash > 0) explosionFlash -= 0.05;
+    if (explosionFlash < 0) explosionFlash = 0;
+    if (screenShake > 0) screenShake -= 0.6;
+    if (screenShake < 0) screenShake = 0;
+  }
+
+  // Gravity: make floating blocks fall after explosion
+  function applyGravity() {
+    var moved = true;
+    while (moved) {
+      moved = false;
+      for (var r = ROWS - 2; r >= 0; r--) {
+        for (var c = 0; c < COLS; c++) {
+          if (board[r][c] !== EMPTY && board[r + 1][c] === EMPTY) {
+            board[r + 1][c] = board[r][c];
+            board[r][c] = EMPTY;
+            moved = true;
+          }
+        }
+      }
+    }
+  }
+
+  function placePiece() {
+    if (!current) return;
+
+    if (current.type === "BOMB") {
+      // Don't lock the bomb onto the board, just explode
+      triggerExplosion(current.x, current.y);
+      applyGravity();
+      var cleared = clearLines();
+      if (cleared > 0) {
+        score += getLineScore(cleared) * level;
+        totalLines += cleared;
+        level = Math.floor(totalLines / 10) + 1;
+      }
+    } else {
+      lockPiece();
+      var cleared2 = clearLines();
+      if (cleared2 > 0) {
+        score += getLineScore(cleared2) * level;
+        totalLines += cleared2;
+        level = Math.floor(totalLines / 10) + 1;
+      }
+    }
+    updateUI();
+    spawnNext();
+  }
+
+  function pickNextType() {
+    if (Math.random() < BOMB_CHANCE) return "BOMB";
+    return nextFromBag();
+  }
+
+  function spawnNext() {
+    current = spawnPiece(nextType || pickNextType());
+    nextType = pickNextType();
+    drawNext();
+
+    // Check game over: if new piece can't be placed
+    if (!isValid(current.type, current.rotation, current.x, current.y)) {
+      gameState = "gameover";
+      current = null;
+      showOverlay("GAME OVER", "Press any key to restart");
+    }
+  }
+
+  function showOverlay(title, msg) {
+    overlayTitle.textContent = title;
+    overlayMsg.textContent = msg;
+    overlay.style.display = "flex";
+  }
+
+  function hideOverlay() {
+    overlay.style.display = "none";
+  }
+
+  // ── Game loop ──
+  function gameLoop(timestamp) {
+    if (gameState !== "playing") {
+      drawBoard();
+      return;
+    }
+
+    var dt = timestamp - lastTime;
+    lastTime = timestamp;
+    dropTimer += dt;
+
+    var speed = getSpeed(level);
+    if (dropTimer >= speed) {
+      dropTimer = 0;
+      if (!moveDown()) {
+        placePiece();
+      }
+    }
+
+    updateParticles();
+    drawBoard();
+    // Redraw next preview each frame for bomb pulse animation
+    if (nextType === "BOMB" || (current && current.type === "BOMB")) {
+      drawNext();
+    }
+    animFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    board = createBoard();
+    score = 0;
+    level = 1;
+    totalLines = 0;
+    dropTimer = 0;
+    bag = [];
+    current = null;
+    nextType = null;
+    explosionParticles = [];
+    explosionFlash = 0;
+    screenShake = 0;
+    updateUI();
+
+    nextType = nextFromBag();
+    spawnNext();
+
+    gameState = "playing";
+    hideOverlay();
+    lastTime = performance.now();
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    animFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  // ── Input ──
+  document.addEventListener("keydown", function (e) {
+    // Prevent default for game keys
+    var gameKeys = [
+      "ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " ", "Space"
+    ];
+    if (gameKeys.indexOf(e.key) !== -1 || gameKeys.indexOf(e.code) !== -1) {
+      e.preventDefault();
+    }
+
+    if (gameState === "idle" || gameState === "gameover") {
+      startGame();
+      return;
+    }
+
+    if (e.key === "p" || e.key === "P") {
+      if (gameState === "playing") {
+        gameState = "paused";
+        showOverlay("PAUSED", "Press P to resume");
+      } else if (gameState === "paused") {
+        gameState = "playing";
+        hideOverlay();
+        lastTime = performance.now();
+        dropTimer = 0;
+        animFrameId = requestAnimationFrame(gameLoop);
+      }
+      return;
+    }
+
+    if (gameState !== "playing") return;
+
+    switch (e.key) {
+      case "ArrowLeft":
+        moveLeft();
+        break;
+      case "ArrowRight":
+        moveRight();
+        break;
+      case "ArrowDown":
+        if (moveDown()) {
+          score += 1;
+          updateUI();
+        }
+        dropTimer = 0;
+        break;
+      case "ArrowUp":
+        rotate();
+        break;
+      case " ":
+        hardDrop();
+        break;
+    }
+
+    drawBoard();
+  });
+
+  // ── Init ──
+  drawBoard();
+  drawNext();
+  showOverlay("TETRIS", "Press any key to start");
+
+})();
+</script>
+</body>
+</html>
